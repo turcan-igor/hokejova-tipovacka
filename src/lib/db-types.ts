@@ -72,3 +72,34 @@ export type AuditLogRow = {
   entity_id: string | null;
   created_at: string;
 };
+
+export type PlayerStatRow = {
+  id: string;
+  player_name: string;
+  team_code: string;
+  position: string | null;
+  games_played: number;
+  goals: number;
+  assists: number;
+  points: number;
+  plus_minus: string | null;
+  penalty_minutes: number | null;
+  source: string | null;
+  updated_at: string;
+};
+
+export type GroupStandingRow = {
+  id: string;
+  group_name: string;
+  rank: number;
+  team_code: string;
+  games_played: number;
+  wins: number;
+  losses: number;
+  goals_for: number;
+  goals_against: number;
+  goal_difference: number;
+  points: number;
+  source: string | null;
+  updated_at: string;
+};

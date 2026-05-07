@@ -6,6 +6,7 @@ import { RefreshCcw, Save } from "lucide-react";
 import { TEAM_OPTIONS } from "@/lib/constants";
 import type { FinalMedalsRow, MatchRow } from "@/lib/db-types";
 import type { MatchStatus } from "@/lib/types";
+import { formatTournamentDateTime } from "@/lib/time-zone";
 
 export function AdminSyncButton() {
   const router = useRouter();
@@ -20,7 +21,7 @@ export function AdminSyncButton() {
     setBusy(false);
     setMessage(
       response.ok
-        ? `Synchronizováno: ${payload.matchesSeen} zápasů`
+        ? `Synchronizováno: ${payload.matchesSeen} zápasů, ${payload.playerStatsSeen ?? 0} hráčských statistik`
         : `Sync se nepovedl: ${payload.detail ?? payload.error ?? "neznámá chyba"}`
     );
     if (response.ok) router.refresh();
@@ -139,7 +140,7 @@ export function MatchOverrideAdmin({ matches }: { matches: MatchRow[] }) {
         >
           {matches.map((match) => (
             <option key={match.id} value={match.id}>
-              {new Intl.DateTimeFormat("cs-CZ", { dateStyle: "short", timeStyle: "short" }).format(new Date(match.starts_at))} | {match.home_team_code ?? "?"} - {match.away_team_code ?? "?"}
+              {formatTournamentDateTime(match.starts_at, { dateStyle: "short", timeStyle: "short" })} | {match.home_team_code ?? "?"} - {match.away_team_code ?? "?"}
             </option>
           ))}
         </select>

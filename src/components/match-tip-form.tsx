@@ -42,9 +42,9 @@ export function MatchTipForm({
         max="30"
         value={homeScore}
         onChange={(event) => setHomeScore(Number(event.target.value))}
-        className="h-10 w-16 rounded-md border border-ice-100 px-2 text-center disabled:bg-slate-100"
+        className="h-10 w-16 rounded-md border border-ice-100 px-2 text-center disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-800"
       />
-      <span className="font-semibold">:</span>
+      <span className="font-semibold dark:text-slate-100">:</span>
       <input
         aria-label="Hosté skóre"
         disabled={disabled}
@@ -53,18 +53,18 @@ export function MatchTipForm({
         max="30"
         value={awayScore}
         onChange={(event) => setAwayScore(Number(event.target.value))}
-        className="h-10 w-16 rounded-md border border-ice-100 px-2 text-center disabled:bg-slate-100"
+        className="h-10 w-16 rounded-md border border-ice-100 px-2 text-center disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:disabled:bg-slate-800"
       />
       <button
         type="button"
         disabled={disabled || busy}
         onClick={save}
-        className="inline-flex h-10 items-center gap-2 rounded-md bg-rink-blue px-3 text-sm font-semibold text-white disabled:bg-slate-300"
+        className="inline-flex h-10 items-center gap-2 rounded-md bg-rink-blue px-3 text-sm font-semibold text-white disabled:bg-slate-300 dark:disabled:bg-slate-700"
       >
         <Save size={16} />
         Uložit
       </button>
-      {message ? <span className="text-sm text-slate-600">{message}</span> : null}
+      {message ? <span className="text-sm text-slate-600 dark:text-slate-300">{message}</span> : null}
     </div>
   );
 }

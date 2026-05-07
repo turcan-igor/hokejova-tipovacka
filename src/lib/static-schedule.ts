@@ -1,4 +1,5 @@
 import type { ParsedIihfMatch } from "@/lib/iihf-parser";
+import { tournamentLocalTimeToUtcIso } from "@/lib/time-zone";
 
 type StaticMatch = {
   day: number;
@@ -114,5 +115,10 @@ function playoff(
 }
 
 function toIsoDate(day: number, time: string) {
-  return new Date(Date.UTC(2026, 4, day, Number(time.slice(0, 2)) - 2, Number(time.slice(3, 5)))).toISOString();
+  return tournamentLocalTimeToUtcIso({
+    year: 2026,
+    monthIndex: 4,
+    day,
+    time
+  });
 }

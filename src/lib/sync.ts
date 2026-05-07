@@ -1,7 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { IIHF_SCHEDULE_URL } from "@/lib/constants";
 import type { FinalMedalsRow, MatchPredictionRow, MatchRow, MedalPredictionRow } from "@/lib/db-types";
+import { syncGroupStandings } from "@/lib/group-standings";
 import { parseIihfScheduleHtml, type ParsedIihfMatch } from "@/lib/iihf-parser";
+import { fetchIihfPlayerStats, upsertPlayerStats } from "@/lib/player-stats";
 import { scoreMatchPrediction, scoreMedalPrediction } from "@/lib/scoring";
 import { getStaticSchedule } from "@/lib/static-schedule";
 
@@ -88,4 +90,16 @@ export async function recomputeScores(supabase: SupabaseClient) {
       .update({ points, scored_at: points === null ? null : new Date().toISOString() })
       .eq("id", prediction.id);
   }
+}
+
+export async function syncPlayerStats(supabase: SupabaseClient) {
+  const stats = await fetchIihfPlayerStats();
+  await upsertPlayerStats(supabase, stats);
+  return stats.length;
+}
+
+export async function syncGroupStandingsFromDb(supabase: SupabaseClient) {
+  const { data, error } = await supabase.from("matches").select("*");
+  if (error) throw error;
+  return syncGroupStandings(supabase, (data ?? []) as MatchRow[]);
 }

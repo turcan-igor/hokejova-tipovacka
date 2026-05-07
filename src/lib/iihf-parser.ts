@@ -1,4 +1,5 @@
 import type { MatchStatus } from "@/lib/types";
+import { tournamentLocalTimeToUtcIso } from "@/lib/time-zone";
 
 export type ParsedIihfMatch = {
   iihfGameId: string | null;
@@ -98,8 +99,12 @@ function inferPhase(homeTeam: string, venueLine: string) {
 }
 
 function toIsoDate(day: string, month: string, time: string) {
-  const date = new Date(Date.UTC(2026, MONTHS[month], Number(day), Number(time.slice(0, 2)) - 2, Number(time.slice(3, 5))));
-  return date.toISOString();
+  return tournamentLocalTimeToUtcIso({
+    year: 2026,
+    monthIndex: MONTHS[month],
+    day: Number(day),
+    time
+  });
 }
 
 function dedupe(matches: ParsedIihfMatch[]) {

@@ -13,6 +13,7 @@ import type {
 } from "@/lib/db-types";
 import { getMissingTipsOverview } from "@/lib/missing-tips";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { formatTournamentDateTime } from "@/lib/time-zone";
 
 export default async function AdminPage() {
   const { profile } = await requireAdmin();
@@ -81,7 +82,7 @@ export default async function AdminPage() {
                     <td className="px-3 py-3 text-slate-700 dark:text-slate-300">
                       {row.nextMissingMatches.length > 0
                         ? row.nextMissingMatches
-                            .map((match) => `${match.homeTeamCode}-${match.awayTeamCode} (${new Intl.DateTimeFormat("cs-CZ", { dateStyle: "short", timeStyle: "short" }).format(new Date(match.startsAt))})`)
+                            .map((match) => `${match.homeTeamCode}-${match.awayTeamCode} (${formatTournamentDateTime(match.startsAt, { dateStyle: "short", timeStyle: "short" })})`)
                             .join(", ")
                         : "Nic nechybí"}
                     </td>

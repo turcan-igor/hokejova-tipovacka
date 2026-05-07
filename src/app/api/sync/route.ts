@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient as createUserClient } from "@/lib/supabase/server";
-import { fetchIihfMatches, recomputeScores, upsertParsedMatches } from "@/lib/sync";
+import {
+  fetchIihfMatches,
+  recomputeScores,
+  syncGroupStandingsFromDb,
+  syncPlayerStats,
+  upsertParsedMatches
+} from "@/lib/sync";
 
 export async function POST(request: Request) {
   const expectedSecret = process.env.SYNC_SECRET;
@@ -23,6 +29,8 @@ export async function POST(request: Request) {
     const matches = await fetchIihfMatches();
     await upsertParsedMatches(supabase, matches);
     await recomputeScores(supabase);
+    const playerStatsSeen = await syncPlayerStats(supabase);
+    const groupStandings = await syncGroupStandingsFromDb(supabase);
 
     await supabase.from("sync_runs").insert({
       source: "iihf",
@@ -32,7 +40,13 @@ export async function POST(request: Request) {
       matches_seen: matches.length
     });
 
-    return NextResponse.json({ ok: true, matchesSeen: matches.length });
+    return NextResponse.json({
+      ok: true,
+      matchesSeen: matches.length,
+      playerStatsSeen,
+      groupStandingsSeen: groupStandings.count,
+      groupStandingsSource: groupStandings.source
+    });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Unknown error";
     await supabase.from("sync_runs").insert({

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ClipboardList, LogOut, Medal, Shield, Trophy, Users } from "lucide-react";
+import { BarChart3, ClipboardList, LogOut, Medal, Shield, Table2, Trophy, Users } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export function Nav({ isAdmin }: { isAdmin: boolean }) {
@@ -8,6 +8,8 @@ export function Nav({ isAdmin }: { isAdmin: boolean }) {
     { href: "/zapasy", label: "Zápasy", icon: Trophy },
     { href: "/medailove-tipy", label: "Medaile", icon: Medal },
     { href: "/zebricek", label: "Žebříček", icon: Users },
+    { href: "/skupiny", label: "Skupiny", icon: Table2 },
+    { href: "/statistiky", label: "Statistiky", icon: BarChart3 },
     { href: "/tipy-ostatnich", label: "Tipy ostatních", icon: Users }
   ];
 
