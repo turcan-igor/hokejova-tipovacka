@@ -12,7 +12,18 @@ const schema = z.object({
 export async function POST(request: Request) {
   const parsed = schema.safeParse(await request.json());
   if (!parsed.success) {
-    return NextResponse.json({ error: "Zkontrolujte zadané údaje." }, { status: 400 });
+    const firstIssue = parsed.error.issues[0];
+    const field = firstIssue?.path[0];
+    const message = field === "password"
+      ? "Heslo musí mít alespoň 8 znaků."
+      : field === "email"
+        ? "Zadejte platný e-mail."
+        : field === "displayName"
+          ? "Jméno musí mít alespoň 2 znaky."
+          : field === "inviteCode"
+            ? "Zadejte platný pozvací kód."
+            : "Zkontrolujte zadané údaje.";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
 
   const supabase = createAdminClient();

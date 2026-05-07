@@ -94,14 +94,20 @@ export function AuthForms() {
           {mode === "login" ? (
             <form className="space-y-4" onSubmit={handleLogin}>
               <Field label="E-mail" name="email" type="email" />
-              <Field label="Heslo" name="password" type="password" />
+              <Field
+                label="Heslo"
+                name="password"
+                type="password"
+                minLength={8}
+                hint="Heslo musí mít alespoň 8 znaků."
+              />
               <SubmitButton busy={busy} label="Přihlásit se" icon={<LogIn size={18} />} />
             </form>
           ) : (
             <form className="space-y-4" onSubmit={handleRegister}>
               <Field label="Jméno v žebříčku" name="displayName" />
               <Field label="E-mail" name="email" type="email" />
-              <Field label="Heslo" name="password" type="password" />
+              <Field label="Heslo" name="password" type="password" minLength={8} />
               <Field label="Pozvací kód" name="inviteCode" icon={<KeyRound size={16} />} />
               <SubmitButton busy={busy} label="Vytvořit účet" icon={<UserPlus size={18} />} />
             </form>
@@ -120,12 +126,16 @@ function Field({
   label,
   name,
   type = "text",
-  icon
+  icon,
+  minLength,
+  hint
 }: {
   label: string;
   name: string;
   type?: string;
   icon?: React.ReactNode;
+  minLength?: number;
+  hint?: string;
 }) {
   return (
     <label className="block text-sm font-semibold text-ice-900">
@@ -136,9 +146,11 @@ function Field({
           required
           name={name}
           type={type}
+          minLength={minLength}
           className="min-w-0 flex-1 border-0 bg-transparent text-base outline-none"
         />
       </span>
+      {hint ? <span className="mt-1 block text-xs font-normal text-slate-500">{hint}</span> : null}
     </label>
   );
 }
