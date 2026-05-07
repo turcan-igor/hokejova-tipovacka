@@ -10,15 +10,17 @@ export function AuthForms() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("");
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setMessage(null);
     const form = new FormData(event.currentTarget);
+    const email = String(form.get("email"));
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({
-      email: String(form.get("email")),
+      email,
       password: String(form.get("password"))
     });
     setBusy(false);
@@ -35,11 +37,12 @@ export function AuthForms() {
     setBusy(true);
     setMessage(null);
     const form = new FormData(event.currentTarget);
+    const email = String(form.get("email"));
     const response = await fetch("/api/auth/register", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        email: String(form.get("email")),
+        email,
         password: String(form.get("password")),
         displayName: String(form.get("displayName")),
         inviteCode: String(form.get("inviteCode"))
@@ -52,6 +55,7 @@ export function AuthForms() {
       setMessage(payload.error ?? "Registrace se nepovedla.");
       return;
     }
+    setLoginEmail(email);
     setMode("login");
     setMessage("Účet je vytvořený. Teď se přihlaste.");
   }
@@ -92,7 +96,14 @@ export function AuthForms() {
           </div>
 
           {mode === "login" ? (
-            <form className="space-y-4" onSubmit={handleLogin}>
+            <form key="login" className="space-y-4" onSubmit={handleLogin}>
+              <Field label="E-mail" name="email" type="email" defaultValue={loginEmail} />
+              <Field label="Heslo" name="password" type="password" minLength={8} />
+              <SubmitButton busy={busy} label="Přihlásit se" icon={<LogIn size={18} />} />
+            </form>
+          ) : (
+            <form key="register" className="space-y-4" onSubmit={handleRegister}>
+              <Field label="Jméno v žebříčku" name="displayName" />
               <Field label="E-mail" name="email" type="email" />
               <Field
                 label="Heslo"
@@ -101,13 +112,6 @@ export function AuthForms() {
                 minLength={8}
                 hint="Heslo musí mít alespoň 8 znaků."
               />
-              <SubmitButton busy={busy} label="Přihlásit se" icon={<LogIn size={18} />} />
-            </form>
-          ) : (
-            <form className="space-y-4" onSubmit={handleRegister}>
-              <Field label="Jméno v žebříčku" name="displayName" />
-              <Field label="E-mail" name="email" type="email" />
-              <Field label="Heslo" name="password" type="password" minLength={8} />
               <Field label="Pozvací kód" name="inviteCode" icon={<KeyRound size={16} />} />
               <SubmitButton busy={busy} label="Vytvořit účet" icon={<UserPlus size={18} />} />
             </form>
@@ -128,7 +132,8 @@ function Field({
   type = "text",
   icon,
   minLength,
-  hint
+  hint,
+  defaultValue
 }: {
   label: string;
   name: string;
@@ -136,6 +141,7 @@ function Field({
   icon?: React.ReactNode;
   minLength?: number;
   hint?: string;
+  defaultValue?: string;
 }) {
   return (
     <label className="block text-sm font-semibold text-ice-900">
@@ -147,6 +153,7 @@ function Field({
           name={name}
           type={type}
           minLength={minLength}
+          defaultValue={defaultValue}
           className="min-w-0 flex-1 border-0 bg-transparent text-base outline-none"
         />
       </span>

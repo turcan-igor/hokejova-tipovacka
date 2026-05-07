@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { LogOut, Medal, Shield, Trophy, Users, ClipboardList } from "lucide-react";
+import { ClipboardList, LogOut, Medal, Shield, Trophy, Users } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function Nav({ isAdmin }: { isAdmin: boolean }) {
   const items = [
@@ -11,9 +12,9 @@ export function Nav({ isAdmin }: { isAdmin: boolean }) {
   ];
 
   return (
-    <header className="border-b border-ice-100 bg-white/86 backdrop-blur">
+    <header className="border-b border-ice-100 bg-white/86 backdrop-blur dark:border-slate-800 dark:bg-slate-950/86">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4">
-        <Link href="/" className="text-lg font-bold text-ice-900">
+        <Link href="/" className="text-lg font-bold text-ice-900 dark:text-slate-100">
           IIHF 2026 Tipovačka
         </Link>
         <nav className="flex flex-wrap items-center gap-2">
@@ -23,7 +24,7 @@ export function Nav({ isAdmin }: { isAdmin: boolean }) {
               <Link
                 key={item.href}
                 href={item.href}
-                className="inline-flex h-10 items-center gap-2 rounded-md px-3 text-sm font-medium text-ice-900 hover:bg-ice-100"
+                className="inline-flex h-10 items-center gap-2 rounded-md px-3 text-sm font-medium text-ice-900 hover:bg-ice-100 dark:text-slate-100 dark:hover:bg-slate-800"
               >
                 <Icon size={16} />
                 {item.label}
@@ -33,14 +34,15 @@ export function Nav({ isAdmin }: { isAdmin: boolean }) {
           {isAdmin ? (
             <Link
               href="/admin"
-              className="inline-flex h-10 items-center gap-2 rounded-md px-3 text-sm font-medium text-rink-red hover:bg-red-50"
+              className="inline-flex h-10 items-center gap-2 rounded-md px-3 text-sm font-medium text-rink-red hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/40"
             >
               <Shield size={16} />
               Admin
             </Link>
           ) : null}
+          <ThemeToggle />
           <form action="/auth/signout" method="post">
-            <button className="inline-flex h-10 items-center gap-2 rounded-md px-3 text-sm font-medium text-ice-900 hover:bg-ice-100">
+            <button className="inline-flex h-10 items-center gap-2 rounded-md px-3 text-sm font-medium text-ice-900 hover:bg-ice-100 dark:text-slate-100 dark:hover:bg-slate-800">
               <LogOut size={16} />
               Odhlásit
             </button>

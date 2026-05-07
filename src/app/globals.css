@@ -8,6 +8,12 @@
   --foreground: #112d3a;
 }
 
+.dark {
+  color-scheme: dark;
+  --background: #07111f;
+  --foreground: #e5eef7;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -19,6 +25,12 @@ body {
     radial-gradient(circle at top left, rgba(23, 105, 170, 0.14), transparent 34%);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.dark body {
+  background:
+    linear-gradient(180deg, rgba(7, 17, 31, 0.98), rgba(15, 23, 42, 0.98)),
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.10), transparent 34%);
 }
 
 a {
@@ -35,4 +47,43 @@ select {
 .table-scroll {
   scrollbar-width: thin;
   scrollbar-color: #9ac2d4 transparent;
+}
+
+.dark .table-scroll {
+  scrollbar-color: #475569 transparent;
+}
+
+.dark .bg-white,
+.dark [class~="bg-white/86"] {
+  background-color: #0f172a;
+}
+
+.dark .bg-ice-100 {
+  background-color: #1e293b;
+}
+
+.dark .bg-ice-50 {
+  background-color: #0f172a;
+}
+
+.dark .border-ice-100 {
+  border-color: #334155;
+}
+
+.dark .text-ice-900,
+.dark .text-slate-700,
+.dark .text-slate-600,
+.dark .text-slate-500 {
+  color: #e2e8f0;
+}
+
+.dark input,
+.dark select {
+  background-color: #111827;
+  border-color: #334155;
+  color: #f8fafc;
+}
+
+.dark input::placeholder {
+  color: #94a3b8;
 }
