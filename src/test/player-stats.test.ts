@@ -40,6 +40,56 @@ describe("parseIihfPlayerStatsHtml", () => {
       plusMinus: "+3"
     });
   });
+
+  it("parses vertical IIHF skaters HTML cards", () => {
+    const html = `
+      <div class="s-flag s-flag--fin"></div>
+      <div class="s-name js-player-name is-enabled-statistics">LUNDELL Anton</div>
+      <div>Forward</div>
+      <div>1</div><div>g</div>
+      <div>1</div><div>a</div>
+      <div>2</div><div>pts</div>
+      <div>0</div><div>+/-</div>
+      <div class="s-name">LUNDELL Anton</div>
+      <div>Position:</div>
+      <div>Forward</div>
+      <div>gp</div>
+      <div>g</div>
+      <div>a</div>
+      <div>pts</div>
+      <div>pim</div>
+      <div>sog</div>
+      <div>+/-</div>
+      <div>gwg</div>
+      <div>ppg</div>
+      <div>shg</div>
+      <div>1</div>
+      <div>1</div>
+      <div>1</div>
+      <div>2</div>
+      <div>0</div>
+      <div>3</div>
+      <div>0</div>
+      <div>0</div>
+      <div>1</div>
+      <div>0</div>
+    `;
+
+    const stats = parseIihfPlayerStatsHtml(html, "fixture");
+
+    expect(stats).toHaveLength(1);
+    expect(stats[0]).toMatchObject({
+      playerName: "LUNDELL Anton",
+      teamCode: "FIN",
+      position: "Forward",
+      gamesPlayed: 1,
+      goals: 1,
+      assists: 1,
+      points: 2,
+      penaltyMinutes: 0,
+      plusMinus: "0"
+    });
+  });
 });
 
 describe("sortPlayerStats", () => {

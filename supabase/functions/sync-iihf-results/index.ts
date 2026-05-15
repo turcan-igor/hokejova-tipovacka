@@ -2,7 +2,10 @@ const scheduleUrl = Deno.env.get("IIHF_SCHEDULE_URL") ??
   "https://www.iihf.com/en/events/2026/wm/schedule";
 const statsScheduleUrl = Deno.env.get("IIHF_STATS_SCHEDULE_URL") ??
   "https://stats.iihf.com/Hydra/969/index.html";
-const playerStatsUrl = "https://www.iihf.com/en/events/2026/wm/skaters/scoringleaders";
+const playerStatsUrls = [
+  "https://www.iihf.com/en/events/2026/wm/skaters/scoringleaders",
+  "https://canada-central.iihf.com/en/events/2026/wm/skaters/scoringleaders"
+];
 const standingsUrl = "https://www.iihf.com/en/events/2026/wm/standings/group";
 const tournamentTimeZone = "Europe/Zurich";
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -427,12 +430,22 @@ function toTextLines(html: string) {
 }
 
 async function fetchPlayerStats() {
-  const response = await fetch(playerStatsUrl, {
-    headers: { "user-agent": "iihf-2026-tipovacka/0.1" }
-  });
-  if (response.status === 403 || response.status === 404) return [];
-  if (!response.ok) throw new Error(`IIHF player stats HTTP ${response.status}`);
-  return parsePlayerStatsHtml(await response.text(), playerStatsUrl);
+  for (const url of playerStatsUrls) {
+    const response = await fetch(url, {
+      headers: {
+        accept: "text/html,application/xhtml+xml",
+        "accept-language": "en-US,en;q=0.9",
+        "user-agent": "Mozilla/5.0 (compatible; iihf-2026-tipovacka/0.1)"
+      }
+    });
+    if (response.status === 403 || response.status === 404) continue;
+    if (!response.ok) throw new Error(`IIHF player stats HTTP ${response.status}`);
+
+    const stats = parsePlayerStatsHtml(await response.text(), url);
+    if (stats.length > 0) return stats;
+  }
+
+  return [];
 }
 
 async function fetchGroupStandings() {
@@ -448,31 +461,31 @@ const TEAM_CODE_PATTERN = /\b(AUT|CAN|CZE|DEN|FIN|GBR|GER|HUN|ITA|LAT|NOR|SLO|SU
 
 function parsePlayerStatsHtml(html: string, source: string) {
   const text = html
+    .replace(/<[^>]*\bs-flag--([a-z]{3})\b[^>]*>/gi, "\n$1\n")
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
     .replace(/<style[\s\S]*?<\/style>/gi, " ")
     .replace(/<[^>]+>/g, "\n")
     .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&");
-  const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    .replace(/&amp;/g, "&")
+    .replace(/\u00a0/g, " ");
+  const lines = text.split(/\r?\n/).map((line) => line.trim().replace(/\s+/g, " ")).filter(Boolean);
   const stats: PlayerStat[] = [];
 
   for (let index = 0; index < lines.length; index += 1) {
     const name = lines[index];
     const position = lines[index + 1];
-    if (!/^[A-Z][A-Z' -]+ [A-Z][A-Za-z' -]+$/.test(name) || !["Forward", "Defender"].includes(position)) continue;
+    if (!isPlayerName(name) || !["Forward", "Defender"].includes(position)) continue;
 
-    const window = lines.slice(index, index + 80);
-    const teamCode = window.find((line) => TEAM_CODE_PATTERN.test(line))?.match(TEAM_CODE_PATTERN)?.[1];
-    const statHeaderIndex = window.findIndex((line) => /^gp\s+g\s+a\s+pts/i.test(line.replace(/\s+/g, " ")));
-    const statLine = statHeaderIndex >= 0 ? window[statHeaderIndex + 1] : null;
-    if (!teamCode || !statLine) continue;
+    const headerIndex = findPlayerStatHeaderIndex(lines, index, index + 120);
+    const teamCode = findNearestTeamCode(lines, index);
+    if (!teamCode || headerIndex < 0) continue;
 
-    const values = statLine.split(/\s+/);
-    const gamesPlayed = Number(values[0]);
-    const goals = Number(values[1]);
-    const assists = Number(values[2]);
-    const points = Number(values[3]);
-    const penaltyMinutes = Number(values[4]);
+    const values = lines.slice(headerIndex + PLAYER_STAT_HEADERS.length, headerIndex + PLAYER_STAT_HEADERS.length + 10);
+    const gamesPlayed = toNumber(values[0]);
+    const goals = toNumber(values[1]);
+    const assists = toNumber(values[2]);
+    const points = toNumber(values[3]);
+    const penaltyMinutes = toNumber(values[4]);
     if (![gamesPlayed, goals, assists, points].every(Number.isFinite)) continue;
 
     stats.push({
@@ -496,6 +509,44 @@ function parsePlayerStatsHtml(html: string, source: string) {
     seen.add(key);
     return true;
   });
+}
+
+const PLAYER_STAT_HEADERS = ["gp", "g", "a", "pts", "pim", "sog", "+/-", "gwg", "ppg", "shg"];
+
+function findPlayerStatHeaderIndex(lines: string[], start: number, end: number) {
+  for (let index = start; index < Math.min(lines.length, end); index += 1) {
+    if (PLAYER_STAT_HEADERS.every((header, offset) => lines[index + offset]?.toLowerCase() === header)) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function findNearestTeamCode(lines: string[], playerNameIndex: number) {
+  for (let index = playerNameIndex - 1; index >= Math.max(0, playerNameIndex - 12); index -= 1) {
+    const code = normalizeTeamCode(lines[index]);
+    if (code) return code;
+  }
+
+  for (let index = playerNameIndex + 1; index < Math.min(lines.length, playerNameIndex + 30); index += 1) {
+    const code = normalizeTeamCode(lines[index]);
+    if (code) return code;
+  }
+
+  return null;
+}
+
+function normalizeTeamCode(value: string | undefined) {
+  const code = value?.trim().toUpperCase();
+  return code && TEAM_CODE_PATTERN.test(code) ? code.match(TEAM_CODE_PATTERN)?.[1] ?? null : null;
+}
+
+function isPlayerName(value: string | undefined) {
+  return Boolean(value && /^[A-Z][A-Z' -]+ [A-Z][A-Za-z' -]+$/.test(value));
+}
+
+function toNumber(value: string | undefined) {
+  return Number(value?.replace("+", ""));
 }
 
 function parseGroupStandingsHtml(html: string): GroupStanding[] {
