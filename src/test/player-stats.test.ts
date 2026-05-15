@@ -90,6 +90,41 @@ describe("parseIihfPlayerStatsHtml", () => {
       plusMinus: "0"
     });
   });
+
+  it("parses IIHF table rows with team and stat cells", () => {
+    const html = `
+      <tr class="s-row js-table-row">
+        <td class="s-cell s-cell--rank js-table-cell"><span class="s-value js-table-cell-value">3</span></td>
+        <td class="s-cell s-cell--name js-table-cell"><span class="s-value js-table-cell-value">MINTEN Fraser</span></td>
+        <td class="s-cell s-cell--position js-table-cell"><span class="s-value js-table-cell-value">F</span></td>
+        <td class="s-cell s-cell--team js-table-cell">
+          <span class="s-flag s-flag--can"></span>
+          <span class="s-value js-table-cell-value">CAN</span>
+        </td>
+        <td class="s-cell s-cell--value s-cell--gp js-table-cell"><span class="s-value js-table-cell-value">1</span></td>
+        <td class="s-cell s-cell--value s-cell--g js-table-cell"><span class="s-value js-table-cell-value">0</span></td>
+        <td class="s-cell s-cell--value s-cell--a js-table-cell"><span class="s-value js-table-cell-value">2</span></td>
+        <td class="s-cell s-cell--value s-cell--pts js-table-cell"><span class="s-value js-table-cell-value">2</span></td>
+        <td class="s-cell s-cell--value s-cell--pim js-table-cell"><span class="s-value js-table-cell-value">0</span></td>
+        <td class="s-cell s-cell--value s-cell--plusminus js-table-cell"><span class="s-value js-table-cell-value">+2</span></td>
+      </tr>
+    `;
+
+    const stats = parseIihfPlayerStatsHtml(html, "fixture");
+
+    expect(stats).toHaveLength(1);
+    expect(stats[0]).toMatchObject({
+      playerName: "MINTEN Fraser",
+      teamCode: "CAN",
+      position: "Forward",
+      gamesPlayed: 1,
+      goals: 0,
+      assists: 2,
+      points: 2,
+      penaltyMinutes: 0,
+      plusMinus: "+2"
+    });
+  });
 });
 
 describe("sortPlayerStats", () => {

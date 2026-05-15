@@ -460,6 +460,9 @@ async function fetchGroupStandings() {
 const TEAM_CODE_PATTERN = /\b(AUT|CAN|CZE|DEN|FIN|GBR|GER|HUN|ITA|LAT|NOR|SLO|SUI|SVK|SWE|USA)\b/;
 
 function parsePlayerStatsHtml(html: string, source: string) {
+  const tableRows = parsePlayerHtmlTableRows(html, source);
+  if (tableRows.length > 0) return dedupePlayerStats(tableRows);
+
   const text = html
     .replace(/<[^>]*\bs-flag--([a-z]{3})\b[^>]*>/gi, "\n$1\n")
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -503,6 +506,81 @@ function parsePlayerStatsHtml(html: string, source: string) {
   }
 
   const seen = new Set<string>();
+  return dedupePlayerStats(stats);
+}
+
+function parsePlayerHtmlTableRows(html: string, source: string): PlayerStat[] {
+  const rows = Array.from(html.matchAll(/<tr\b([^>]*)>([\s\S]*?)<\/tr>/gi))
+    .filter(([, attributes]) => /\bclass="[^"]*\bs-row\b/i.test(attributes));
+  const groupedRows = new Map<string, string>();
+  const stats: PlayerStat[] = [];
+
+  for (const [, attributes, rowHtml] of rows) {
+    const id = attributes.match(/\bdata-fwk-id="([^"]+)"/i)?.[1] ?? cryptoSafeHash(rowHtml);
+    groupedRows.set(id, `${groupedRows.get(id) ?? ""}${rowHtml}`);
+  }
+
+  for (const rowHtml of groupedRows.values()) {
+    const name = extractPlayerCellValue(rowHtml, "name");
+    const position = extractPlayerCellValue(rowHtml, "position");
+    const teamCode = extractPlayerTeamCode(rowHtml);
+    const gamesPlayed = toNumber(extractPlayerCellValue(rowHtml, "gp"));
+    const goals = toNumber(extractPlayerCellValue(rowHtml, "g"));
+    const assists = toNumber(extractPlayerCellValue(rowHtml, "a"));
+    const points = toNumber(extractPlayerCellValue(rowHtml, "pts"));
+    const penaltyMinutes = toNumber(extractPlayerCellValue(rowHtml, "pim"));
+    const plusMinus = extractPlayerCellValue(rowHtml, "plusminus") ?? extractPlayerPlusMinusCellValue(rowHtml);
+
+    if (!name || !teamCode || !Number.isFinite(gamesPlayed) || !Number.isFinite(points)) continue;
+
+    stats.push({
+      playerName: decodeHtml(name),
+      teamCode,
+      position: position ? normalizePosition(position) : null,
+      gamesPlayed,
+      goals: Number.isFinite(goals) ? goals : 0,
+      assists: Number.isFinite(assists) ? assists : 0,
+      points,
+      penaltyMinutes: Number.isFinite(penaltyMinutes) ? penaltyMinutes : null,
+      plusMinus,
+      source
+    });
+  }
+
+  return stats;
+}
+
+function cryptoSafeHash(value: string) {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) | 0;
+  }
+  return String(hash);
+}
+
+function extractPlayerCellValue(rowHtml: string, cellName: string) {
+  const cellMatch = rowHtml.match(new RegExp(`<td[^>]*\\bs-cell--${cellName}\\b[\\s\\S]*?<\\/td>`, "i"));
+  if (!cellMatch) return null;
+  const valueMatch = cellMatch[0].match(/<span[^>]*\bs-value\b[^>]*>([\s\S]*?)<\/span>/i);
+  return valueMatch ? stripTags(valueMatch[1]).trim() : null;
+}
+
+function extractPlayerPlusMinusCellValue(rowHtml: string) {
+  const cellMatch = rowHtml.match(/<td[^>]*\bs-cell--\+\/-\b[\s\S]*?<\/td>/i);
+  if (!cellMatch) return null;
+  const valueMatch = cellMatch[0].match(/<span[^>]*\bs-value\b[^>]*>([\s\S]*?)<\/span>/i);
+  return valueMatch ? stripTags(valueMatch[1]).trim() : null;
+}
+
+function extractPlayerTeamCode(rowHtml: string) {
+  const flagMatch = rowHtml.match(/\bs-flag--([a-z]{3})\b/i);
+  if (flagMatch) return normalizeTeamCode(flagMatch[1]);
+  const teamCell = extractPlayerCellValue(rowHtml, "team");
+  return normalizeTeamCode(teamCell ?? undefined);
+}
+
+function dedupePlayerStats(stats: PlayerStat[]) {
+  const seen = new Set<string>();
   return stats.filter((stat) => {
     const key = `${stat.playerName}:${stat.teamCode}`;
     if (seen.has(key)) return false;
@@ -545,8 +623,28 @@ function isPlayerName(value: string | undefined) {
   return Boolean(value && /^[A-Z][A-Z' -]+ [A-Z][A-Za-z' -]+$/.test(value));
 }
 
-function toNumber(value: string | undefined) {
+function toNumber(value: string | null | undefined) {
   return Number(value?.replace("+", ""));
+}
+
+function normalizePosition(value: string) {
+  if (value === "F") return "Forward";
+  if (value === "D") return "Defender";
+  return value;
+}
+
+function stripTags(value: string) {
+  return decodeHtml(value.replace(/<[^>]+>/g, " "));
+}
+
+function decodeHtml(value: string) {
+  return value
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function parseGroupStandingsHtml(html: string): GroupStanding[] {
