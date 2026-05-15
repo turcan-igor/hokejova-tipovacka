@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseIihfScheduleHtml } from "@/lib/iihf-parser";
+import { parseIihfScheduleHtml, parseIihfStatsScheduleHtml } from "@/lib/iihf-parser";
 
 describe("parseIihfScheduleHtml", () => {
   it("parses upcoming preliminary matches and game ids", () => {
@@ -80,5 +80,57 @@ describe("parseIihfScheduleHtml", () => {
       awayScore: 2,
       status: "final"
     });
+  });
+
+  it("parses completed games from IIHF stats schedule", () => {
+    const html = `
+      15 May 2026, Fri
+      16:20  GMT+2  Zurich
+      Swiss Life Arena  1
+      PRE FIN  -  GER   3 - 1
+      ( 1 - 0 ,  0 - 0 ,  2 - 1 )  Game
+      Completed  Roster Lineups Summary
+      15 May 2026, Fri
+      16:20  GMT+2  Fribourg
+      BCF Arena  2
+      PRE CAN  -  SWE   5 - 3
+      Completed
+      15 May 2026, Fri
+      20:20  GMT+2  Zurich
+      Swiss Life Arena  3
+      PRE USA  -  SUI   0 - 1   Live
+      ( 0 - 1 )  Period 1
+    `;
+
+    const matches = parseIihfStatsScheduleHtml(html);
+    expect(matches).toMatchObject([
+      {
+        iihfGameId: "static-2026-01",
+        homeTeamCode: "FIN",
+        awayTeamCode: "GER",
+        homeScore: 3,
+        awayScore: 1,
+        status: "final",
+        groupName: "A"
+      },
+      {
+        iihfGameId: "static-2026-02",
+        homeTeamCode: "CAN",
+        awayTeamCode: "SWE",
+        homeScore: 5,
+        awayScore: 3,
+        status: "final",
+        groupName: "B"
+      },
+      {
+        iihfGameId: "static-2026-03",
+        homeTeamCode: "USA",
+        awayTeamCode: "SUI",
+        homeScore: 0,
+        awayScore: 1,
+        status: "live",
+        groupName: "A"
+      }
+    ]);
   });
 });

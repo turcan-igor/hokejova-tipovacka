@@ -1,6 +1,8 @@
 export const TOURNAMENT_START = "2026-05-15T16:20:00+02:00";
 export const IIHF_SCHEDULE_URL =
   process.env.IIHF_SCHEDULE_URL ?? "https://www.iihf.com/en/events/2026/wm/schedule";
+export const IIHF_STATS_SCHEDULE_URL =
+  process.env.IIHF_STATS_SCHEDULE_URL ?? "https://stats.iihf.com/Hydra/969/index.html";
 
 export const TEAM_OPTIONS = [
   { code: "AUT", name: "Rakousko" },

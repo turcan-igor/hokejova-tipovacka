@@ -1,13 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { IIHF_SCHEDULE_URL } from "@/lib/constants";
+import { IIHF_SCHEDULE_URL, IIHF_STATS_SCHEDULE_URL } from "@/lib/constants";
 import type { FinalMedalsRow, MatchPredictionRow, MatchRow, MedalPredictionRow } from "@/lib/db-types";
 import { syncGroupStandings } from "@/lib/group-standings";
-import { parseIihfScheduleHtml, type ParsedIihfMatch } from "@/lib/iihf-parser";
+import { parseIihfScheduleHtml, parseIihfStatsScheduleHtml, type ParsedIihfMatch } from "@/lib/iihf-parser";
 import { fetchIihfPlayerStats, upsertPlayerStats } from "@/lib/player-stats";
 import { scoreMatchPrediction, scoreMedalPrediction } from "@/lib/scoring";
 import { getStaticSchedule } from "@/lib/static-schedule";
 
 export async function fetchIihfMatches(fetcher: typeof fetch = fetch) {
+  const statsMatches = await fetchIihfStatsMatches(fetcher);
+  if (statsMatches.length > 0) return statsMatches;
+
   const response = await fetcher(IIHF_SCHEDULE_URL, {
     headers: {
       "user-agent": "iihf-2026-tipovacka/0.1"
@@ -25,6 +28,18 @@ export async function fetchIihfMatches(fetcher: typeof fetch = fetch) {
 
   const parsed = parseIihfScheduleHtml(await response.text());
   return parsed.length > 0 ? parsed : getStaticSchedule();
+}
+
+async function fetchIihfStatsMatches(fetcher: typeof fetch) {
+  const response = await fetcher(IIHF_STATS_SCHEDULE_URL, {
+    headers: {
+      "user-agent": "iihf-2026-tipovacka/0.1"
+    },
+    cache: "no-store"
+  });
+
+  if (!response.ok) return [];
+  return parseIihfStatsScheduleHtml(await response.text());
 }
 
 export async function upsertParsedMatches(supabase: SupabaseClient, matches: ParsedIihfMatch[]) {

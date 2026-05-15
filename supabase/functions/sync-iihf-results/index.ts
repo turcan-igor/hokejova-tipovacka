@@ -1,5 +1,7 @@
 const scheduleUrl = Deno.env.get("IIHF_SCHEDULE_URL") ??
   "https://www.iihf.com/en/events/2026/wm/schedule";
+const statsScheduleUrl = Deno.env.get("IIHF_STATS_SCHEDULE_URL") ??
+  "https://stats.iihf.com/Hydra/969/index.html";
 const playerStatsUrl = "https://www.iihf.com/en/events/2026/wm/skaters/scoringleaders";
 const standingsUrl = "https://www.iihf.com/en/events/2026/wm/standings/group";
 const tournamentTimeZone = "Europe/Zurich";
@@ -15,18 +17,7 @@ Deno.serve(async (request) => {
 
   const startedAt = new Date().toISOString();
   try {
-    const response = await fetch(scheduleUrl, {
-      headers: { "user-agent": "iihf-2026-tipovacka/0.1" }
-    });
-
-    let matches: ParsedMatch[];
-    if (response.status === 403) {
-      matches = getStaticSchedule();
-    } else {
-      if (!response.ok) throw new Error(`IIHF HTTP ${response.status}`);
-      const parsed = parseIihfScheduleHtml(await response.text());
-      matches = parsed.length > 0 ? parsed : getStaticSchedule();
-    }
+    const matches = await fetchMatches();
 
     await supabaseRest("matches", "POST", matches.map(toDbMatch), {
       Prefer: "resolution=merge-duplicates"
@@ -72,6 +63,25 @@ Deno.serve(async (request) => {
     return json({ error: "Sync failed", detail: errorMessage }, 500);
   }
 });
+
+async function fetchMatches() {
+  const statsResponse = await fetch(statsScheduleUrl, {
+    headers: { "user-agent": "iihf-2026-tipovacka/0.1" }
+  });
+  if (statsResponse.ok) {
+    const parsed = parseIihfStatsScheduleHtml(await statsResponse.text());
+    if (parsed.length > 0) return parsed;
+  }
+
+  const response = await fetch(scheduleUrl, {
+    headers: { "user-agent": "iihf-2026-tipovacka/0.1" }
+  });
+
+  if (response.status === 403) return getStaticSchedule();
+  if (!response.ok) throw new Error(`IIHF HTTP ${response.status}`);
+  const parsed = parseIihfScheduleHtml(await response.text());
+  return parsed.length > 0 ? parsed : getStaticSchedule();
+}
 
 async function supabaseRest(table: string, method: string, body: unknown, extraHeaders: Record<string, string> = {}) {
   const conflict = table === "matches"
@@ -258,6 +268,80 @@ function parseIihfScheduleHtml(html: string) {
   return parsed;
 }
 
+function parseIihfStatsScheduleHtml(html: string) {
+  const lines = toTextLines(html);
+  const parsed: ParsedMatch[] = [];
+  let currentDate: { day: string } | null = null;
+  let currentTime: string | null = null;
+  let currentVenue: string | null = null;
+  let currentGameNumber: string | null = null;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const dateMatch = line.match(/^(\d{1,2})\s+May\s+2026/);
+    if (dateMatch) {
+      currentDate = { day: dateMatch[1] };
+      continue;
+    }
+
+    const timeMatch = line.match(/^(\d{1,2}:\d{2})\s+GMT\+2/);
+    if (timeMatch) {
+      currentTime = timeMatch[1];
+      continue;
+    }
+
+    const venueWithGameMatch = line.match(/^(Swiss Life Arena|BCF Arena)\s+(\d+)$/);
+    if (venueWithGameMatch) {
+      currentVenue = venueWithGameMatch[1];
+      currentGameNumber = venueWithGameMatch[2];
+      continue;
+    }
+
+    const venueMatch = line.match(/^(Swiss Life Arena|BCF Arena)$/);
+    if (venueMatch) {
+      currentVenue = venueMatch[1];
+      continue;
+    }
+
+    if (currentVenue && /^\d+$/.test(line)) {
+      currentGameNumber = line;
+      continue;
+    }
+
+    const combinedMatchLine = line.match(/^(PRE|QF|SF|BMG|GMG)\s+([A-Z()]+(?:\(QF\))?)\s+-\s+([A-Z()]+(?:\(QF\))?)(?:\s+(.+))?$/);
+    const tokenizedMatchLine = /^(PRE|QF|SF|BMG|GMG)$/.test(line) && lines[index + 2] === "-"
+      ? [line, line, lines[index + 1], lines[index + 3], lines[index + 4] ?? ""]
+      : null;
+    const matchLine = combinedMatchLine ?? tokenizedMatchLine;
+    if (!matchLine || !currentDate || !currentTime) continue;
+
+    const [, phaseCode, homeRaw, awayRaw, resultRaw = ""] = matchLine;
+    const scoreMatch = resultRaw.match(/(\d+)\s+-\s+(\d+)/);
+    const nextStatusLines = lines.slice(index + 1, index + 12).join(" ").toLowerCase();
+    const source = `${resultRaw} ${nextStatusLines}`.toLowerCase();
+    const status = source.includes("completed")
+      ? "final"
+      : source.includes("period") || source.includes("live")
+        ? "live"
+        : "scheduled";
+
+    parsed.push({
+      iihfGameId: currentGameNumber ? `static-2026-${currentGameNumber.padStart(2, "0")}` : null,
+      startsAt: toIsoDate(currentDate.day, currentTime),
+      homeTeamCode: normalizeTeam(homeRaw),
+      awayTeamCode: normalizeTeam(awayRaw),
+      homeScore: scoreMatch ? Number(scoreMatch[1]) : null,
+      awayScore: scoreMatch ? Number(scoreMatch[2]) : null,
+      status,
+      phase: phaseFromCode(phaseCode),
+      venue: currentVenue,
+      groupName: inferGroup(normalizeTeam(homeRaw), normalizeTeam(awayRaw))
+    });
+  }
+
+  return dedupeMatches(parsed);
+}
+
 function normalizeTeam(team: string) {
   const trimmed = team.trim();
   if (["QF", "W(QF)", "L(SF)", "W(SF)"].includes(trimmed)) return null;
@@ -270,6 +354,33 @@ function inferPhase(homeTeam: string, venueLine: string) {
   if (homeTeam === "L(SF)") return "Bronze Medal Game";
   if (homeTeam === "W(SF)") return "Gold Medal Game";
   return venueLine.includes("Group") ? "Preliminary Round" : "Playoffs";
+}
+
+function phaseFromCode(code: string) {
+  if (code === "QF") return "Quarterfinals";
+  if (code === "SF") return "Semifinals";
+  if (code === "BMG") return "Bronze Medal Game";
+  if (code === "GMG") return "Gold Medal Game";
+  return "Preliminary Round";
+}
+
+const GROUP_A_TEAMS = new Set(["AUT", "FIN", "GBR", "GER", "HUN", "LAT", "SUI", "USA"]);
+const GROUP_B_TEAMS = new Set(["CAN", "CZE", "DEN", "ITA", "NOR", "SLO", "SVK", "SWE"]);
+
+function inferGroup(homeTeamCode: string | null, awayTeamCode: string | null) {
+  if (homeTeamCode && awayTeamCode && GROUP_A_TEAMS.has(homeTeamCode) && GROUP_A_TEAMS.has(awayTeamCode)) return "A";
+  if (homeTeamCode && awayTeamCode && GROUP_B_TEAMS.has(homeTeamCode) && GROUP_B_TEAMS.has(awayTeamCode)) return "B";
+  return null;
+}
+
+function dedupeMatches(matches: ParsedMatch[]) {
+  const seen = new Set<string>();
+  return matches.filter((match) => {
+    const key = `${match.startsAt}:${match.homeTeamCode ?? match.phase}:${match.awayTeamCode ?? match.venue}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function toIsoDate(day: string, time: string) {
@@ -300,6 +411,19 @@ function getTimeZoneOffsetMs(date: Date, timeZone: string) {
     Number(values.second)
   );
   return asUtc - date.getTime();
+}
+
+function toTextLines(html: string) {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, "\n")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/\u00a0/g, " ")
+    .split(/\r?\n/)
+    .map((line) => line.trim().replace(/\s+/g, " "))
+    .filter(Boolean);
 }
 
 async function fetchPlayerStats() {
