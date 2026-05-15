@@ -109,7 +109,7 @@ export default async function AdminPage() {
               <tbody>
                 {((syncRuns ?? []) as SyncRunRow[]).map((run) => (
                   <tr key={run.id} className="border-t border-ice-100 dark:border-slate-700">
-                    <td className="px-3 py-2">{new Intl.DateTimeFormat("cs-CZ", { dateStyle: "short", timeStyle: "short" }).format(new Date(run.started_at))}</td>
+                    <td className="px-3 py-2">{formatTournamentDateTime(run.started_at, { dateStyle: "short", timeStyle: "short" })}</td>
                     <td className="px-3 py-2">{run.status}</td>
                     <td className="px-3 py-2">{run.matches_seen ?? "-"}</td>
                     <td className="px-3 py-2">{run.error_message ?? "-"}</td>
@@ -150,7 +150,7 @@ export default async function AdminPage() {
           <div className="space-y-2">
             {((auditLog ?? []) as AuditLogRow[]).map((entry) => (
               <div key={entry.id} className="rounded-md bg-ice-100 px-3 py-2 text-sm dark:bg-slate-800 dark:text-slate-200">
-                <strong>{entry.action}</strong> {entry.entity_type} {entry.entity_id ?? ""} | {new Intl.DateTimeFormat("cs-CZ", { dateStyle: "short", timeStyle: "short" }).format(new Date(entry.created_at))}
+                <strong>{entry.action}</strong> {entry.entity_type} {entry.entity_id ?? ""} | {formatTournamentDateTime(entry.created_at, { dateStyle: "short", timeStyle: "short" })}
               </div>
             ))}
           </div>
