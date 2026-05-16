@@ -1,10 +1,10 @@
 "use client";
 
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { ChevronDown, ChevronUp, Flame } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { LiveTipStateBadge, liveTipCardClass } from "@/components/live-tip-state";
 import { Matchup } from "@/components/team-badge";
-import { getLivePredictionState } from "@/lib/scoring";
+import { canStillHitExactScore, getLivePredictionState } from "@/lib/scoring";
 import type { MatchStatus } from "@/lib/types";
 
 type OthersMatchTipPrediction = {
@@ -141,14 +141,14 @@ function PredictionCard({
   prediction: OthersMatchTipPrediction;
   match: OthersMatchTipMatch;
 }) {
-  const liveState = getLivePredictionState(
-    { home_score: prediction.homeScore, away_score: prediction.awayScore },
-    {
-      home_score: match.homeScore,
-      away_score: match.awayScore,
-      status: match.status
-    }
-  );
+  const predictionScore = { home_score: prediction.homeScore, away_score: prediction.awayScore };
+  const matchScore = {
+    home_score: match.homeScore,
+    away_score: match.awayScore,
+    status: match.status
+  };
+  const liveState = getLivePredictionState(predictionScore, matchScore);
+  const canHitExactScore = canStillHitExactScore(predictionScore, matchScore);
   const isExact = match.status === "final" && (prediction.isExact || prediction.points === 3);
   const isWinner = match.status === "final" && !isExact && prediction.points === 1;
   const className =
@@ -163,7 +163,18 @@ function PredictionCard({
   return (
     <div className={className}>
       <div className="flex items-center justify-between gap-2">
-        <strong>{prediction.userName}</strong>
+        <strong className="inline-flex items-center gap-1.5">
+          {prediction.userName}
+          {canHitExactScore ? (
+            <Flame
+              size={16}
+              className="shrink-0 text-orange-500 dark:text-orange-300"
+              aria-label="Stále může trefit přesné skóre za 3 body"
+            >
+              <title>Stále může trefit přesné skóre za 3 body</title>
+            </Flame>
+          ) : null}
+        </strong>
         {match.status === "live" ? <LiveTipStateBadge state={liveState} /> : null}
         {isExact ? (
           <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800 dark:bg-emerald-900 dark:text-emerald-100">

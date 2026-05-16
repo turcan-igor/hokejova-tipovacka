@@ -90,6 +90,19 @@ export function getLivePredictionState(
   return "out";
 }
 
+export function canStillHitExactScore(
+  prediction: Pick<MatchPrediction, "home_score" | "away_score">,
+  match: Pick<Match, "home_score" | "away_score" | "status">
+) {
+  return (
+    match.status === "live" &&
+    match.home_score !== null &&
+    match.away_score !== null &&
+    match.home_score <= prediction.home_score &&
+    match.away_score <= prediction.away_score
+  );
+}
+
 function winner(homeScore: number, awayScore: number) {
   if (homeScore === awayScore) return null;
   return homeScore > awayScore ? "home" : "away";

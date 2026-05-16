@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assignSharedRanks,
+  canStillHitExactScore,
   getLivePredictionState,
   isLocked,
   isScorePredictionValid,
@@ -110,6 +111,53 @@ describe("getLivePredictionState", () => {
         { home_score: 3, away_score: 2, status: "live" }
       )
     ).toBe("out");
+  });
+});
+
+describe("canStillHitExactScore", () => {
+  it("marks a live tied score that can still reach the exact tip", () => {
+    expect(
+      canStillHitExactScore(
+        { home_score: 3, away_score: 2 },
+        { home_score: 1, away_score: 1, status: "live" }
+      )
+    ).toBe(true);
+  });
+
+  it("stays true when the current live winner matches the prediction", () => {
+    expect(
+      canStillHitExactScore(
+        { home_score: 4, away_score: 2 },
+        { home_score: 2, away_score: 1, status: "live" }
+      )
+    ).toBe(true);
+  });
+
+  it("rejects tips where the live score has already passed the prediction", () => {
+    expect(
+      canStillHitExactScore(
+        { home_score: 2, away_score: 2 },
+        { home_score: 3, away_score: 2, status: "live" }
+      )
+    ).toBe(false);
+  });
+
+  it("does not mark final matches even when the exact score matches", () => {
+    expect(
+      canStillHitExactScore(
+        { home_score: 3, away_score: 2 },
+        { home_score: 3, away_score: 2, status: "final" }
+      )
+    ).toBe(false);
+  });
+
+  it("requires known live scores", () => {
+    expect(
+      canStillHitExactScore(
+        { home_score: 3, away_score: 2 },
+        { home_score: null, away_score: null, status: "live" }
+      )
+    ).toBe(false);
   });
 });
 
