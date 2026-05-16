@@ -53,8 +53,10 @@ export type TipperAward = {
   key: string;
   group: "Výkon" | "Forma" | "Styl tipování" | "Zábavné ceny";
   title: string;
+  winners: { userId: string; displayName: string }[];
   winnerName: string | null;
   winnerUserId: string | null;
+  winnerLabel: string;
   value: string;
   description: string;
 };
@@ -209,11 +211,12 @@ export function calculateTipperStats({
 function getTrophiesByUser(awards: TipperAward[]) {
   const trophiesByUser = new Map<string, TipperTrophy[]>();
   for (const award of awards) {
-    if (!award.winnerUserId) continue;
-    trophiesByUser.set(award.winnerUserId, [
-      ...(trophiesByUser.get(award.winnerUserId) ?? []),
-      createTrophyFromAward(award)
-    ]);
+    for (const winnerItem of award.winners) {
+      trophiesByUser.set(winnerItem.userId, [
+        ...(trophiesByUser.get(winnerItem.userId) ?? []),
+        createTrophyFromAward(award)
+      ]);
+    }
   }
   return trophiesByUser;
 }
@@ -251,15 +254,26 @@ function award(
     const valueDiff = direction === "asc" ? a.value - b.value : b.value - a.value;
     return valueDiff || a.profile.display_name.localeCompare(b.profile.display_name, "cs");
   });
-  const winnerItem = sorted[0];
+  const bestValue = sorted[0]?.value ?? null;
+  const winnerItems = bestValue !== null && bestValue > 0
+    ? sorted.filter((item) => item.value === bestValue)
+    : [];
+  const winnerItem = winnerItems[0];
+  const winners = winnerItems.map((item) => ({
+    userId: item.profile.user_id,
+    displayName: item.profile.display_name
+  }));
+  const value = bestValue !== null && bestValue > 0 ? formatMetricValue(bestValue, key) : "Nedostatek dat";
 
   return {
     key,
     group,
     title,
+    winners,
     winnerName: winnerItem?.profile.display_name ?? null,
     winnerUserId: winnerItem?.profile.user_id ?? null,
-    value: winnerItem ? formatMetricValue(winnerItem.value, key) : "Nedostatek dat",
+    winnerLabel: winners.length > 0 ? `${winners.map((winner) => winner.displayName).join(", ")} · ${value}` : value,
+    value,
     description
   };
 }

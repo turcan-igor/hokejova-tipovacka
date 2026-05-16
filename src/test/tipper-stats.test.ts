@@ -121,6 +121,8 @@ describe("calculateTipperStats", () => {
     });
 
     expect(stats.awards.find((award) => award.key === "exact-king")?.winnerName).toBe("Anna");
+    expect(stats.awards.find((award) => award.key === "exact-king")?.winners.map((winner) => winner.displayName)).toEqual(["Anna", "Boris"]);
+    expect(stats.awards.find((award) => award.key === "exact-king")?.winnerLabel).toBe("Anna, Boris · 1");
     expect(stats.awards.find((award) => award.key === "winner-oracle")?.winnerName).toBe("Anna");
     expect(stats.awards.find((award) => award.key === "contrarian")?.winnerName).toBe("Cyril");
   });
@@ -149,12 +151,29 @@ describe("calculateTipperStats", () => {
     });
 
     const anna = stats.profiles.find((row) => row.user_id === "u1");
+    const cyril = stats.profiles.find((row) => row.user_id === "u3");
     const dana = stats.profiles.find((row) => row.user_id === "u4");
 
     expect(anna?.trophies.map((trophy) => trophy.key)).toContain("exact-king");
     expect(anna?.trophies.length).toBeGreaterThan(1);
-    expect(dana?.trophies).toEqual([]);
+    expect(cyril?.trophies.map((trophy) => trophy.key)).toContain("shootout");
+    expect(dana?.trophies.map((trophy) => trophy.key)).toContain("behind");
     expect(Object.keys(TIPPER_TROPHY_CONFIG).sort()).toEqual(stats.awards.map((award) => award.key).sort());
     expect(FALLBACK_TROPHY_CONFIG.icon).toBe("Trophy");
+  });
+
+  it("does not assign trophy badges for zero-value shared awards", () => {
+    const stats = calculateTipperStats({
+      profiles,
+      matches: [finalMatch("m1", "2026-05-15T14:20:00.000Z", 3, 2)],
+      matchPredictions: [],
+      medalPredictions: [],
+      now: new Date("2026-05-17T12:00:00.000Z")
+    });
+
+    expect(stats.awards.find((award) => award.key === "exact-king")?.winners).toEqual([]);
+    expect(stats.awards.find((award) => award.key === "exact-king")?.winnerName).toBeNull();
+    expect(stats.awards.find((award) => award.key === "exact-king")?.winnerLabel).toBe("Nedostatek dat");
+    expect(stats.profiles.every((profile) => profile.trophies.length === 0)).toBe(true);
   });
 });

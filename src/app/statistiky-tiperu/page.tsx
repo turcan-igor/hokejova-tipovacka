@@ -46,9 +46,9 @@ export default async function TipperStatsPage() {
                 <TipperStatCard
                   key={award.key}
                   title={award.title}
-                  value={award.winnerName ? `${award.winnerName} · ${award.value}` : award.value}
+                  value={award.winnerLabel}
                   description={award.description}
-                  href={award.winnerUserId ? `/tiperi/${award.winnerUserId}` : undefined}
+                  href={award.winners.length === 1 && award.winnerUserId ? `/tiperi/${award.winnerUserId}` : undefined}
                   icon={<TipperTrophyBadge trophy={createTrophyFromAward(award)} size="lg" />}
                 />
               ))}
