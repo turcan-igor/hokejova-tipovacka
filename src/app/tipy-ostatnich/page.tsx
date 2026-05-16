@@ -6,6 +6,13 @@ import { isLocked } from "@/lib/scoring";
 import { formatTournamentDateTime } from "@/lib/time-zone";
 import type { MatchPredictionRow, MatchRow, MedalPredictionRow, ProfileRow } from "@/lib/db-types";
 
+const exactTipClass =
+  "rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-100";
+const winnerTipClass =
+  "rounded-md border border-orange-300 bg-orange-50 px-3 py-2 text-sm text-orange-950 dark:border-orange-700 dark:bg-orange-950/40 dark:text-orange-100";
+const neutralTipClass =
+  "rounded-md bg-ice-100 px-3 py-2 text-sm text-ice-900 dark:bg-slate-800 dark:text-slate-100";
+
 export default async function OthersTipsPage() {
   const { supabase, profile } = await requireUser();
   const { data: profiles } = await supabase.from("profiles").select("id, display_name").order("display_name");
@@ -59,21 +66,23 @@ export default async function OthersTipsPage() {
                     {predictionsForMatch.map((prediction) => {
                       const owner = profileRows.find((item) => item.id === prediction.user_id);
                       const isExact = prediction.is_exact || prediction.points === 3;
+                      const isWinner = !isExact && prediction.points === 1;
 
                       return (
                         <div
                           key={prediction.id}
-                          className={
-                            isExact
-                              ? "rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-950 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-100"
-                              : "rounded-md bg-ice-100 px-3 py-2 text-sm text-ice-900 dark:bg-slate-800 dark:text-slate-100"
-                          }
+                          className={isExact ? exactTipClass : isWinner ? winnerTipClass : neutralTipClass}
                         >
                           <div className="flex items-center justify-between gap-2">
                             <strong>{owner?.display_name ?? "Uživatel"}</strong>
                             {isExact ? (
                               <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800 dark:bg-emerald-900 dark:text-emerald-100">
                                 Přesně
+                              </span>
+                            ) : null}
+                            {isWinner ? (
+                              <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-bold text-orange-800 dark:bg-orange-900 dark:text-orange-100">
+                                Správný vítěz
                               </span>
                             ) : null}
                           </div>
