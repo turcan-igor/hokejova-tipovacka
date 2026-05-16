@@ -10,6 +10,7 @@ export function Nav({ isAdmin }: { isAdmin: boolean }) {
     { href: "/zebricek", label: "Žebříček", icon: Users },
     { href: "/skupiny", label: "Skupiny", icon: Table2 },
     { href: "/statistiky", label: "Statistiky", icon: BarChart3 },
+    { href: "/statistiky-tiperu", label: "Statistiky tipérů", icon: BarChart3 },
     { href: "/tipy-ostatnich", label: "Tipy ostatních", icon: Users }
   ];
 
