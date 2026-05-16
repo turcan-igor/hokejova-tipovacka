@@ -19,17 +19,23 @@ export function AuthForms() {
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email"));
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password: String(form.get("password"))
-    });
-    setBusy(false);
-    if (error) {
-      setMessage("Přihlášení se nepovedlo. Zkontrolujte e-mail a heslo.");
-      return;
+
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password: String(form.get("password"))
+      });
+      if (error) {
+        setMessage("Přihlášení se nepovedlo. Zkontrolujte e-mail a heslo.");
+        return;
+      }
+      router.push("/");
+      router.refresh();
+    } catch {
+      setMessage("Přihlášení se nepovedlo. Zkuste to prosím znovu.");
+    } finally {
+      setBusy(false);
     }
-    router.push("/");
-    router.refresh();
   }
 
   async function handleRegister(event: React.FormEvent<HTMLFormElement>) {
@@ -38,57 +44,68 @@ export function AuthForms() {
     setMessage(null);
     const form = new FormData(event.currentTarget);
     const email = String(form.get("email"));
-    const response = await fetch("/api/auth/register", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        email,
-        password: String(form.get("password")),
-        displayName: String(form.get("displayName")),
-        inviteCode: String(form.get("inviteCode"))
-      })
-    });
 
-    const payload = await response.json();
-    setBusy(false);
-    if (!response.ok) {
-      setMessage(payload.error ?? "Registrace se nepovedla.");
-      return;
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          email,
+          password: String(form.get("password")),
+          displayName: String(form.get("displayName")),
+          inviteCode: String(form.get("inviteCode"))
+        })
+      });
+      const payload = await parseJson(response);
+      if (!response.ok) {
+        setMessage(payload.error ?? "Registrace se nepovedla.");
+        return;
+      }
+      setLoginEmail(email);
+      setMode("login");
+      setMessage("Účet je vytvořený. Teď se přihlaste.");
+    } catch {
+      setMessage("Registrace se nepovedla. Zkuste to prosím znovu.");
+    } finally {
+      setBusy(false);
     }
-    setLoginEmail(email);
-    setMode("login");
-    setMessage("Účet je vytvořený. Teď se přihlaste.");
   }
 
   return (
-    <div className="min-h-screen px-4 py-10">
-      <div className="mx-auto grid max-w-5xl gap-8 lg:grid-cols-[1fr_420px]">
-        <section className="flex min-h-[520px] flex-col justify-center">
-          <div className="mb-6 inline-flex h-12 w-12 items-center justify-center rounded-md bg-rink-blue text-white">
+    <div className="min-h-screen px-4 py-6 sm:py-10">
+      <div className="mx-auto grid max-w-5xl gap-6 lg:grid-cols-[1fr_420px] lg:gap-8">
+        <section className="flex flex-col justify-center lg:min-h-[520px]">
+          <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-md bg-rink-blue text-white lg:mb-6">
             <TrophyIcon />
           </div>
-          <h1 className="max-w-2xl text-4xl font-bold leading-tight text-ice-900 sm:text-5xl">
+          <h1 className="max-w-2xl text-3xl font-bold leading-tight text-ice-900 dark:text-slate-100 sm:text-5xl">
             IIHF 2026 Tipovačka
           </h1>
-          <p className="mt-5 max-w-xl text-lg leading-8 text-slate-700">
+          <p className="mt-3 max-w-xl text-base leading-7 text-slate-700 dark:text-slate-300 lg:mt-5 lg:text-lg lg:leading-8">
             Tipujte výsledky zápasů, medailisty a sledujte žebříček bez ručního počítání.
           </p>
         </section>
 
-        <section className="rounded-lg border border-ice-100 bg-white p-6 shadow-soft">
-          <div className="mb-5 grid grid-cols-2 rounded-md bg-ice-100 p-1">
+        <section className="rounded-lg border border-ice-100 bg-white p-6 shadow-soft dark:border-slate-700 dark:bg-slate-900">
+          <div className="mb-5 grid grid-cols-2 rounded-md bg-ice-100 p-1 dark:bg-slate-800">
             <button
               type="button"
+              disabled={busy}
               onClick={() => setMode("login")}
-              className={`inline-flex h-10 items-center justify-center gap-2 rounded-md text-sm font-semibold ${mode === "login" ? "bg-white text-ice-900 shadow-sm" : "text-slate-600"}`}
+              className={`inline-flex h-11 items-center justify-center gap-2 rounded-md text-sm font-semibold ${
+                mode === "login" ? "bg-white text-ice-900 shadow-sm dark:bg-slate-950 dark:text-slate-100" : "text-slate-600 dark:text-slate-300"
+              }`}
             >
               <LogIn size={16} />
               Přihlášení
             </button>
             <button
               type="button"
+              disabled={busy}
               onClick={() => setMode("register")}
-              className={`inline-flex h-10 items-center justify-center gap-2 rounded-md text-sm font-semibold ${mode === "register" ? "bg-white text-ice-900 shadow-sm" : "text-slate-600"}`}
+              className={`inline-flex h-11 items-center justify-center gap-2 rounded-md text-sm font-semibold ${
+                mode === "register" ? "bg-white text-ice-900 shadow-sm dark:bg-slate-950 dark:text-slate-100" : "text-slate-600 dark:text-slate-300"
+              }`}
             >
               <UserPlus size={16} />
               Registrace
@@ -97,28 +114,29 @@ export function AuthForms() {
 
           {mode === "login" ? (
             <form key="login" className="space-y-4" onSubmit={handleLogin}>
-              <Field label="E-mail" name="email" type="email" defaultValue={loginEmail} />
-              <Field label="Heslo" name="password" type="password" minLength={8} />
+              <Field label="E-mail" name="email" type="email" defaultValue={loginEmail} disabled={busy} />
+              <Field label="Heslo" name="password" type="password" minLength={8} disabled={busy} />
               <SubmitButton busy={busy} label="Přihlásit se" icon={<LogIn size={18} />} />
             </form>
           ) : (
             <form key="register" className="space-y-4" onSubmit={handleRegister}>
-              <Field label="Jméno v žebříčku" name="displayName" />
-              <Field label="E-mail" name="email" type="email" />
+              <Field label="Jméno v žebříčku" name="displayName" disabled={busy} />
+              <Field label="E-mail" name="email" type="email" disabled={busy} />
               <Field
                 label="Heslo"
                 name="password"
                 type="password"
                 minLength={8}
                 hint="Heslo musí mít alespoň 8 znaků."
+                disabled={busy}
               />
-              <Field label="Pozvací kód" name="inviteCode" icon={<KeyRound size={16} />} />
+              <Field label="Pozvací kód" name="inviteCode" icon={<KeyRound size={16} />} disabled={busy} />
               <SubmitButton busy={busy} label="Vytvořit účet" icon={<UserPlus size={18} />} />
             </form>
           )}
 
           {message ? (
-            <p className="mt-4 rounded-md bg-ice-100 px-3 py-2 text-sm text-ice-900">{message}</p>
+            <p className="mt-4 rounded-md bg-ice-100 px-3 py-2 text-sm text-ice-900 dark:bg-slate-800 dark:text-slate-100">{message}</p>
           ) : null}
         </section>
       </div>
@@ -133,7 +151,8 @@ function Field({
   icon,
   minLength,
   hint,
-  defaultValue
+  defaultValue,
+  disabled
 }: {
   label: string;
   name: string;
@@ -142,22 +161,24 @@ function Field({
   minLength?: number;
   hint?: string;
   defaultValue?: string;
+  disabled: boolean;
 }) {
   return (
-    <label className="block text-sm font-semibold text-ice-900">
+    <label className="block text-sm font-semibold text-ice-900 dark:text-slate-100">
       {label}
-      <span className="mt-2 flex h-11 items-center gap-2 rounded-md border border-ice-100 bg-white px-3">
+      <span className="mt-2 flex h-11 items-center gap-2 rounded-md border border-ice-100 bg-white px-3 dark:border-slate-700 dark:bg-slate-950">
         {icon}
         <input
           required
+          disabled={disabled}
           name={name}
           type={type}
           minLength={minLength}
           defaultValue={defaultValue}
-          className="min-w-0 flex-1 border-0 bg-transparent text-base outline-none"
+          className="min-w-0 flex-1 border-0 bg-transparent text-base outline-none disabled:opacity-70"
         />
       </span>
-      {hint ? <span className="mt-1 block text-xs font-normal text-slate-500">{hint}</span> : null}
+      {hint ? <span className="mt-1 block text-xs font-normal text-slate-500 dark:text-slate-400">{hint}</span> : null}
     </label>
   );
 }
@@ -181,4 +202,12 @@ function TrophyIcon() {
       <path d="M8 6H5a3 3 0 0 0 3 3M16 6h3a3 3 0 0 1-3 3M12 13v4M8 20h8M10 17h4" stroke="currentColor" strokeWidth="2" />
     </svg>
   );
+}
+
+async function parseJson(response: Response): Promise<{ error?: string }> {
+  try {
+    return await response.json();
+  } catch {
+    return {};
+  }
 }

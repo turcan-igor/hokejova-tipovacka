@@ -8,10 +8,10 @@ export default async function LeaderboardPage() {
 
   return (
     <PageShell isAdmin={profile.role === "ADMIN"}>
-      <h1 className="mb-6 text-3xl font-bold text-ice-900">Žebříček</h1>
-      <div className="overflow-hidden rounded-lg border border-ice-100 bg-white shadow-soft">
-        <table className="w-full border-collapse text-left">
-          <thead className="bg-ice-100 text-sm text-ice-900">
+      <h1 className="mb-6 text-3xl font-bold text-ice-900 dark:text-slate-100">Žebříček</h1>
+      <div className="overflow-x-auto rounded-lg border border-ice-100 bg-white shadow-soft table-scroll dark:border-slate-700 dark:bg-slate-900">
+        <table className="min-w-[680px] w-full border-collapse text-left">
+          <thead className="bg-ice-100 text-sm text-ice-900 dark:bg-slate-800 dark:text-slate-100">
             <tr>
               <th className="px-4 py-3">Pořadí</th>
               <th className="px-4 py-3">Jméno</th>
@@ -23,12 +23,12 @@ export default async function LeaderboardPage() {
           </thead>
           <tbody>
             {leaderboard.map((row) => (
-              <tr key={row.user_id} className="border-t border-ice-100">
+              <tr key={row.user_id} className="border-t border-ice-100 dark:border-slate-700">
                 <td className="px-4 py-4 font-bold">{row.rank}.</td>
                 <td className="px-4 py-4">{row.display_name}</td>
                 <td className="px-4 py-4">{row.match_points}</td>
                 <td className="px-4 py-4">{row.medal_points}</td>
-                <td className="px-4 py-4 text-lg font-bold text-rink-blue">{row.total_points}</td>
+                <td className="px-4 py-4 text-lg font-bold text-rink-blue dark:text-sky-300">{row.total_points}</td>
                 <td className="px-4 py-4">{row.exact_scores}</td>
               </tr>
             ))}

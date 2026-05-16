@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth";
 import type { MatchPredictionRow, MatchRow } from "@/lib/db-types";
 import { groupMatchesByDay } from "@/lib/match-groups";
 import { isLocked } from "@/lib/scoring";
+import { TOURNAMENT_TIME_ZONE } from "@/lib/time-zone";
 
 export default async function MatchesPage() {
   const { supabase, user, profile } = await requireUser();
@@ -53,7 +54,7 @@ export default async function MatchesPage() {
                     <div>
                       <p className="text-lg font-bold text-ice-900 dark:text-slate-100">
                         {new Intl.DateTimeFormat("cs-CZ", {
-                          timeZone: "Europe/Prague",
+                          timeZone: TOURNAMENT_TIME_ZONE,
                           hour: "2-digit",
                           minute: "2-digit"
                         }).format(new Date(match.starts_at))}
