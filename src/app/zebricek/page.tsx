@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { PageShell } from "@/components/page-shell";
 import { requireUser } from "@/lib/auth";
-import { getLeaderboard } from "@/lib/db-queries";
+import { getCachedLeaderboard } from "@/lib/db-queries";
 
 export default async function LeaderboardPage() {
-  const { supabase, profile } = await requireUser();
-  const leaderboard = await getLeaderboard(supabase);
+  const { profile } = await requireUser();
+  const leaderboard = await getCachedLeaderboard();
 
   return (
     <PageShell isAdmin={profile.role === "ADMIN"}>

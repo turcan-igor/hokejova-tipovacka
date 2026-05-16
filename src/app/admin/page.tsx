@@ -18,22 +18,28 @@ import { formatTournamentDateTime } from "@/lib/time-zone";
 export default async function AdminPage() {
   const { profile } = await requireAdmin();
   const supabase = createAdminClient();
-  const { data: syncRuns } = await supabase
-    .from("sync_runs")
-    .select("*")
-    .order("started_at", { ascending: false })
-    .limit(10);
-  const { data: finalMedals } = await supabase.from("final_medals").select("*").eq("id", 1).maybeSingle();
-  const { data: matches } = await supabase.from("matches").select("*").order("starts_at", { ascending: true });
-  const { data: profiles } = await supabase.from("profiles").select("id, display_name").order("display_name");
-  const { data: matchPredictions } = await supabase.from("match_predictions").select("*");
-  const { data: medalPredictions } = await supabase.from("medal_predictions").select("*");
-  const { data: auditLog } = await supabase
-    .from("admin_audit_log")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(20);
-  const { data: inviteCodes } = await supabase.from("invite_codes").select("*").order("created_at", { ascending: false });
+  const [
+    { data: syncRuns },
+    { data: finalMedals },
+    { data: matches },
+    { data: profiles },
+    { data: matchPredictions },
+    { data: medalPredictions },
+    { data: auditLog },
+    { data: inviteCodes }
+  ] = await Promise.all([
+    supabase.from("sync_runs").select("id,source,status,started_at,matches_seen,error_message").order("started_at", { ascending: false }).limit(10),
+    supabase.from("final_medals").select("id,gold_team_code,silver_team_code,bronze_team_code").eq("id", 1).maybeSingle(),
+    supabase
+      .from("matches")
+      .select("id,iihf_game_id,phase,starts_at,venue,group_name,home_team_code,away_team_code,home_score,away_score,status")
+      .order("starts_at", { ascending: true }),
+    supabase.from("profiles").select("id, display_name").order("display_name"),
+    supabase.from("match_predictions").select("id,user_id,match_id,home_score,away_score,points,is_exact"),
+    supabase.from("medal_predictions").select("id,user_id,gold_team_code,silver_team_code,bronze_team_code,points"),
+    supabase.from("admin_audit_log").select("id,action,entity_type,entity_id,created_at").order("created_at", { ascending: false }).limit(20),
+    supabase.from("invite_codes").select("id,code,is_active,max_uses,used_count,created_at").order("created_at", { ascending: false })
+  ]);
 
   const matchRows = (matches ?? []) as MatchRow[];
   const missingTips = getMissingTipsOverview({
@@ -112,7 +118,7 @@ export default async function AdminPage() {
                     <td className="px-3 py-2">{formatTournamentDateTime(run.started_at, { dateStyle: "short", timeStyle: "short" })}</td>
                     <td className="px-3 py-2">{run.status}</td>
                     <td className="px-3 py-2">{run.matches_seen ?? "-"}</td>
-                    <td className="px-3 py-2">{run.error_message ?? "-"}</td>
+                    <td className="break-all px-3 py-2">{run.error_message ?? "-"}</td>
                   </tr>
                 ))}
               </tbody>

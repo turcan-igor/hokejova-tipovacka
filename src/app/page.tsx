@@ -16,27 +16,28 @@ export default async function HomePage() {
   const now = new Date();
   const medalLocked = isLocked(TOURNAMENT_START, now);
 
-  const { data: matches } = await supabase
-    .from("matches")
-    .select("*")
-    .not("home_team_code", "is", null)
-    .not("away_team_code", "is", null)
-    .or(`status.eq.live,starts_at.gt.${now.toISOString()}`)
-    .order("starts_at", { ascending: true })
-    .limit(8);
-
-  const { data: predictions } = await supabase
-    .from("match_predictions")
-    .select("*")
-    .eq("user_id", user.id);
-
-  const { data: medalPrediction } = await supabase
-    .from("medal_predictions")
-    .select("*")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const [{ data: matches }, { data: predictions }, { data: medalPrediction }] = await Promise.all([
+    supabase
+      .from("matches")
+      .select("id,iihf_game_id,phase,starts_at,venue,group_name,home_team_code,away_team_code,home_score,away_score,status")
+      .not("home_team_code", "is", null)
+      .not("away_team_code", "is", null)
+      .or(`status.eq.live,starts_at.gt.${now.toISOString()}`)
+      .order("starts_at", { ascending: true })
+      .limit(8),
+    supabase
+      .from("match_predictions")
+      .select("id,user_id,match_id,home_score,away_score,points,is_exact")
+      .eq("user_id", user.id),
+    supabase
+      .from("medal_predictions")
+      .select("id,user_id,gold_team_code,silver_team_code,bronze_team_code,points")
+      .eq("user_id", user.id)
+      .maybeSingle()
+  ]);
 
   const matchRows = ((matches ?? []) as MatchRow[]).filter((match) => match.status === "live" || !isLocked(match.starts_at, now));
+  const predictionRows = (predictions ?? []) as MatchPredictionRow[];
 
   return (
     <PageShell isAdmin={profile.role === "ADMIN"}>
@@ -66,11 +67,12 @@ export default async function HomePage() {
               </p>
             ) : null}
             {matchRows.map((match) => {
-              const prediction = ((predictions ?? []) as MatchPredictionRow[]).find((item) => item.match_id === match.id);
+              const prediction = predictionRows.find((item) => item.match_id === match.id);
               const liveState = prediction ? getLivePredictionState(prediction, match) : null;
-              const liveScore = match.status === "live" && match.home_score !== null && match.away_score !== null
-                ? `${match.home_score}:${match.away_score}`
-                : null;
+              const liveScore =
+                match.status === "live" && match.home_score !== null && match.away_score !== null
+                  ? `${match.home_score}:${match.away_score}`
+                  : null;
 
               return (
                 <article key={match.id} className="rounded-md border border-ice-100 p-4 dark:border-slate-700">

@@ -1,13 +1,13 @@
 import { PageShell } from "@/components/page-shell";
 import { TipperStatCard } from "@/components/tipper-stat-card";
 import { requireUser } from "@/lib/auth";
-import { formatDecimal, formatPercent, getTipperStats } from "@/lib/tipper-stats";
+import { formatDecimal, formatPercent, getCachedTipperStats } from "@/lib/tipper-stats";
 
 const awardGroups = ["Výkon", "Forma", "Styl tipování", "Zábavné ceny"] as const;
 
 export default async function TipperStatsPage() {
-  const { supabase, profile } = await requireUser();
-  const stats = await getTipperStats(supabase);
+  const { profile } = await requireUser();
+  const stats = await getCachedTipperStats();
 
   return (
     <PageShell isAdmin={profile.role === "ADMIN"}>

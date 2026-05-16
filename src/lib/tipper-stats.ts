@@ -1,7 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { unstable_cache } from "next/cache";
 import { assignSharedRanks, isLocked } from "@/lib/scoring";
 import { TOURNAMENT_TIME_ZONE } from "@/lib/time-zone";
 import type { MatchPredictionRow, MatchRow, MedalPredictionRow, ProfileRow } from "@/lib/db-types";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type RankedTipper = {
   user_id: string;
@@ -63,10 +65,15 @@ export type TipperStatsDataset = {
 };
 
 export async function getTipperStats(supabase: SupabaseClient) {
-  const { data: profilesData } = await supabase.from("profiles").select("id, display_name").order("display_name");
-  const { data: matchesData } = await supabase.from("matches").select("*").order("starts_at", { ascending: true });
-  const { data: matchPredictionsData } = await supabase.from("match_predictions").select("*");
-  const { data: medalPredictionsData } = await supabase.from("medal_predictions").select("*");
+  const [{ data: profilesData }, { data: matchesData }, { data: matchPredictionsData }, { data: medalPredictionsData }] = await Promise.all([
+    supabase.from("profiles").select("id, display_name").order("display_name"),
+    supabase
+      .from("matches")
+      .select("id,iihf_game_id,phase,starts_at,venue,group_name,home_team_code,away_team_code,home_score,away_score,status")
+      .order("starts_at", { ascending: true }),
+    supabase.from("match_predictions").select("id,user_id,match_id,home_score,away_score,points,is_exact"),
+    supabase.from("medal_predictions").select("id,user_id,gold_team_code,silver_team_code,bronze_team_code,points")
+  ]);
 
   return calculateTipperStats({
     profiles: (profilesData ?? []) as ProfileRow[],
@@ -75,6 +82,12 @@ export async function getTipperStats(supabase: SupabaseClient) {
     medalPredictions: (medalPredictionsData ?? []) as MedalPredictionRow[]
   });
 }
+
+export const getCachedTipperStats = unstable_cache(
+  async () => getTipperStats(createAdminClient()),
+  ["tipper-stats-v1"],
+  { revalidate: 30 }
+);
 
 export function calculateTipperStats({
   profiles,
@@ -95,16 +108,20 @@ export function calculateTipperStats({
   const lockedKnownMatches = matches.filter(
     (match) => isLocked(match.starts_at, now) && Boolean(match.home_team_code && match.away_team_code)
   );
+  const matchPredictionsByUser = groupBy(matchPredictions, (prediction) => prediction.user_id);
+  const medalPredictionsByUser = groupBy(medalPredictions, (prediction) => prediction.user_id);
+  const predictionsByUserMatch = new Map<string, MatchPredictionRow>();
+  for (const prediction of matchPredictions) {
+    predictionsByUserMatch.set(userMatchKey(prediction.user_id, prediction.match_id), prediction);
+  }
   const majorityByMatch = getMajorityWinnerByMatch(matchPredictions);
 
   const ranked = assignSharedRanks(
     profiles
       .map((profile) => {
-        const userMatchPredictions = matchPredictions.filter((prediction) => prediction.user_id === profile.id);
+        const userMatchPredictions = matchPredictionsByUser.get(profile.id) ?? [];
         const matchPoints = userMatchPredictions.reduce((sum, prediction) => sum + (prediction.points ?? 0), 0);
-        const medalPoints = medalPredictions
-          .filter((prediction) => prediction.user_id === profile.id)
-          .reduce((sum, prediction) => sum + (prediction.points ?? 0), 0);
+        const medalPoints = (medalPredictionsByUser.get(profile.id) ?? []).reduce((sum, prediction) => sum + (prediction.points ?? 0), 0);
 
         return {
           user_id: profile.id,
@@ -121,11 +138,11 @@ export function calculateTipperStats({
   const top3Cutoff = ranked.find((row) => row.rank === 3)?.total_points ?? ranked[ranked.length - 1]?.total_points ?? 0;
 
   const detailed = ranked.map((row) => {
-    const userPredictions = matchPredictions.filter((prediction) => prediction.user_id === row.user_id);
-    const predictionsByMatch = new Map(userPredictions.map((prediction) => [prediction.match_id, prediction]));
+    const userPredictions = matchPredictionsByUser.get(row.user_id) ?? [];
+    const userPredictionsByMatch = new Map(userPredictions.map((prediction) => [prediction.match_id, prediction]));
     const finalPredictions = finalMatches
       .map((match) => {
-        const prediction = predictionsByMatch.get(match.id);
+        const prediction = userPredictionsByMatch.get(match.id);
         return prediction ? { match, prediction } : null;
       })
       .filter((item): item is { match: MatchRow; prediction: MatchPredictionRow } => item !== null);
@@ -133,13 +150,13 @@ export function calculateTipperStats({
       winner(prediction.home_score, prediction.away_score) === winner(match.home_score ?? 0, match.away_score ?? 0)
     ).length;
     const dayScores = getDayScores(finalPredictions);
-    const streaks = getPointStreaks(finalMatches, predictionsByMatch);
-    const filledLockedKnownMatches = lockedKnownMatches.filter((match) => predictionsByMatch.has(match.id)).length;
+    const streaks = getPointStreaks(finalMatches, userPredictionsByMatch);
+    const filledLockedKnownMatches = lockedKnownMatches.filter((match) => userPredictionsByMatch.has(match.id)).length;
     const againstMajorityCount = userPredictions.filter((prediction) => {
       const majority = majorityByMatch.get(prediction.match_id);
       return majority !== null && majority !== undefined && winner(prediction.home_score, prediction.away_score) !== majority;
     }).length;
-    const leaderComparison = getLeaderHeadToHead(row.user_id, leader?.user_id ?? null, finalMatches, matchPredictions);
+    const leaderComparison = getLeaderHeadToHead(row.user_id, leader?.user_id ?? null, finalMatches, predictionsByUserMatch);
 
     return {
       ...row,
@@ -154,8 +171,8 @@ export function calculateTipperStats({
       pointEfficiency: ratio(row.match_points, finalMatches.length * 3),
       averagePointsPerFinalPrediction: finalPredictions.length ? row.match_points / finalPredictions.length : null,
       disciplineRate: ratio(filledLockedKnownMatches, lockedKnownMatches.length),
-      pointsLast5: pointsInLastMatches(finalMatches, predictionsByMatch, 5),
-      pointsLast10: pointsInLastMatches(finalMatches, predictionsByMatch, 10),
+      pointsLast5: pointsInLastMatches(finalMatches, userPredictionsByMatch, 5),
+      pointsLast10: pointsInLastMatches(finalMatches, userPredictionsByMatch, 10),
       bestDay: dayScores[0] ?? null,
       currentPointStreak: streaks.current,
       longestPointStreak: streaks.longest,
@@ -261,7 +278,7 @@ function getLeaderHeadToHead(
   userId: string,
   leaderUserId: string | null,
   finalMatches: MatchRow[],
-  predictions: MatchPredictionRow[]
+  predictionsByUserMatch: Map<string, MatchPredictionRow>
 ) {
   if (!leaderUserId || userId === leaderUserId) {
     return { leaderUserId, leaderName: null, betterMatches: 0, worseMatches: 0, tiedMatches: 0 };
@@ -271,8 +288,8 @@ function getLeaderHeadToHead(
   let worseMatches = 0;
   let tiedMatches = 0;
   for (const match of finalMatches) {
-    const userPoints = predictions.find((prediction) => prediction.user_id === userId && prediction.match_id === match.id)?.points ?? 0;
-    const leaderPoints = predictions.find((prediction) => prediction.user_id === leaderUserId && prediction.match_id === match.id)?.points ?? 0;
+    const userPoints = predictionsByUserMatch.get(userMatchKey(userId, match.id))?.points ?? 0;
+    const leaderPoints = predictionsByUserMatch.get(userMatchKey(leaderUserId, match.id))?.points ?? 0;
     if (userPoints > leaderPoints) betterMatches += 1;
     else if (userPoints < leaderPoints) worseMatches += 1;
     else tiedMatches += 1;
@@ -289,16 +306,28 @@ function pointsInLastMatches(finalMatches: MatchRow[], predictionsByMatch: Map<s
 
 function getMajorityWinnerByMatch(predictions: MatchPredictionRow[]) {
   const result = new Map<string, "home" | "away" | null>();
-  const grouped = new Map<string, MatchPredictionRow[]>();
-  for (const prediction of predictions) {
-    grouped.set(prediction.match_id, [...(grouped.get(prediction.match_id) ?? []), prediction]);
-  }
+  const grouped = groupBy(predictions, (prediction) => prediction.match_id);
   for (const [matchId, rows] of grouped) {
     const home = rows.filter((prediction) => winner(prediction.home_score, prediction.away_score) === "home").length;
     const away = rows.filter((prediction) => winner(prediction.home_score, prediction.away_score) === "away").length;
     result.set(matchId, home === away ? null : home > away ? "home" : "away");
   }
   return result;
+}
+
+function groupBy<T>(items: T[], keyGetter: (item: T) => string) {
+  const grouped = new Map<string, T[]>();
+  for (const item of items) {
+    const key = keyGetter(item);
+    const rows = grouped.get(key) ?? [];
+    rows.push(item);
+    grouped.set(key, rows);
+  }
+  return grouped;
+}
+
+function userMatchKey(userId: string, matchId: string) {
+  return `${userId}:${matchId}`;
 }
 
 function winner(homeScore: number, awayScore: number) {

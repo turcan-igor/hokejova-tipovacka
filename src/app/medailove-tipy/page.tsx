@@ -8,7 +8,7 @@ export default async function MedalsPage() {
   const { supabase, user, profile } = await requireUser();
   const { data: medalPrediction } = await supabase
     .from("medal_predictions")
-    .select("*")
+    .select("id,user_id,gold_team_code,silver_team_code,bronze_team_code,points")
     .eq("user_id", user.id)
     .maybeSingle();
 

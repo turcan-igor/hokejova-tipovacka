@@ -3,12 +3,12 @@ import { notFound } from "next/navigation";
 import { PageShell } from "@/components/page-shell";
 import { TipperStatCard } from "@/components/tipper-stat-card";
 import { requireUser } from "@/lib/auth";
-import { formatDecimal, formatPercent, getTipperStats } from "@/lib/tipper-stats";
+import { formatDecimal, formatPercent, getCachedTipperStats } from "@/lib/tipper-stats";
 
 export default async function TipperDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { supabase, profile } = await requireUser();
-  const stats = await getTipperStats(supabase);
+  const { profile } = await requireUser();
+  const stats = await getCachedTipperStats();
   const tipper = stats.profiles.find((item) => item.user_id === id);
   const leader = stats.profiles[0] ?? null;
   if (!tipper) notFound();

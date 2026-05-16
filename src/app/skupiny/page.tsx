@@ -22,12 +22,17 @@ type StandingViewRow = {
 
 export default async function GroupsPage() {
   const { supabase, profile } = await requireUser();
-  const { data: standingsData } = await supabase
-    .from("group_standings")
-    .select("*")
-    .order("group_name", { ascending: true })
-    .order("rank", { ascending: true });
-  const { data: matchesData } = await supabase.from("matches").select("*").order("starts_at", { ascending: true });
+  const [{ data: standingsData }, { data: matchesData }] = await Promise.all([
+    supabase
+      .from("group_standings")
+      .select("id,group_name,rank,team_code,games_played,wins,losses,goals_for,goals_against,goal_difference,points,source,updated_at")
+      .order("group_name", { ascending: true })
+      .order("rank", { ascending: true }),
+    supabase
+      .from("matches")
+      .select("id,iihf_game_id,phase,starts_at,venue,group_name,home_team_code,away_team_code,home_score,away_score,status")
+      .order("starts_at", { ascending: true })
+  ]);
 
   const matches = (matchesData ?? []) as MatchRow[];
   const storedStandings = (standingsData ?? []) as GroupStandingRow[];

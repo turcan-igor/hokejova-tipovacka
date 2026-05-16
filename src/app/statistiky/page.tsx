@@ -19,7 +19,9 @@ export default async function PlayerStatsPage({
   const { supabase, profile } = await requireUser();
   const params = await searchParams;
   const view = params.view === "goals" || params.view === "assists" ? params.view : "points";
-  const { data } = await supabase.from("player_stats").select("*");
+  const { data } = await supabase
+    .from("player_stats")
+    .select("id,player_name,team_code,position,games_played,goals,assists,points,plus_minus,penalty_minutes,source,updated_at");
   const rows = sortPlayerStats(((data ?? []) as PlayerStatRow[]).map(toPlayerStat), view);
 
   return (

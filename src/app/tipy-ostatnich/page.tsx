@@ -8,17 +8,25 @@ import type { MatchPredictionRow, MatchRow, MedalPredictionRow, ProfileRow } fro
 
 export default async function OthersTipsPage() {
   const { supabase, profile } = await requireUser();
-  const { data: profiles } = await supabase.from("profiles").select("id, display_name").order("display_name");
-  const { data: matches } = await supabase.from("matches").select("*").order("starts_at", { ascending: false });
+  const [{ data: profiles }, { data: matches }, { data: medalPredictions }] = await Promise.all([
+    supabase.from("profiles").select("id, display_name").order("display_name"),
+    supabase
+      .from("matches")
+      .select("id,iihf_game_id,phase,starts_at,venue,group_name,home_team_code,away_team_code,home_score,away_score,status")
+      .order("starts_at", { ascending: false }),
+    isLocked(TOURNAMENT_START)
+      ? supabase.from("medal_predictions").select("id,user_id,gold_team_code,silver_team_code,bronze_team_code,points")
+      : Promise.resolve({ data: [] })
+  ]);
   const profileRows = (profiles ?? []) as ProfileRow[];
   const matchRows = (matches ?? []) as MatchRow[];
   const lockedMatches = matchRows.filter((match) => isLocked(match.starts_at) || match.status === "live");
   const lockedMatchIds = lockedMatches.map((match) => match.id);
   const { data: matchPredictions } = lockedMatchIds.length
-    ? await supabase.from("match_predictions").select("*").in("match_id", lockedMatchIds)
-    : { data: [] };
-  const { data: medalPredictions } = isLocked(TOURNAMENT_START)
-    ? await supabase.from("medal_predictions").select("*")
+    ? await supabase
+        .from("match_predictions")
+        .select("id,user_id,match_id,home_score,away_score,points,is_exact")
+        .in("match_id", lockedMatchIds)
     : { data: [] };
   const matchPredictionRows = (matchPredictions ?? []) as MatchPredictionRow[];
   const matchTipMatches: OthersMatchTipMatch[] = lockedMatches.map((match) => {

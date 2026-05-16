@@ -9,8 +9,16 @@ import { TOURNAMENT_TIME_ZONE } from "@/lib/time-zone";
 
 export default async function MatchesPage() {
   const { supabase, user, profile } = await requireUser();
-  const { data: matches } = await supabase.from("matches").select("*").order("starts_at", { ascending: true });
-  const { data: predictions } = await supabase.from("match_predictions").select("*").eq("user_id", user.id);
+  const [{ data: matches }, { data: predictions }] = await Promise.all([
+    supabase
+      .from("matches")
+      .select("id,iihf_game_id,phase,starts_at,venue,group_name,home_team_code,away_team_code,home_score,away_score,status")
+      .order("starts_at", { ascending: true }),
+    supabase
+      .from("match_predictions")
+      .select("id,user_id,match_id,home_score,away_score,points,is_exact")
+      .eq("user_id", user.id)
+  ]);
   const matchRows = (matches ?? []) as MatchRow[];
   const predictionRows = (predictions ?? []) as MatchPredictionRow[];
   const matchGroups = groupMatchesByDay(matchRows);
