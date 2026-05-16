@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageShell } from "@/components/page-shell";
 import { TipperStatCard } from "@/components/tipper-stat-card";
+import { TipperTrophyList } from "@/components/tipper-trophy-badge";
 import { requireUser } from "@/lib/auth";
 import { formatDecimal, formatPercent, getCachedTipperStats } from "@/lib/tipper-stats";
 
@@ -22,6 +23,9 @@ export default async function TipperDetailPage({ params }: { params: Promise<{ i
           </Link>
           <h1 className="mt-2 text-3xl font-bold text-ice-900 dark:text-slate-100">{tipper.display_name}</h1>
           <p className="mt-2 text-slate-700 dark:text-slate-300">Detail formy, přesnosti a vztahu k lídrovi soutěže.</p>
+          <div className="mt-4">
+            <TipperTrophyList trophies={tipper.trophies} emptyLabel="Zatím bez trofeje" />
+          </div>
         </div>
         <Link href="/statistiky-tiperu" className="text-sm font-semibold text-rink-blue hover:underline dark:text-sky-300">
           Síň statistik

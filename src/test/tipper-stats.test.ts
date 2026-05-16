@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calculateTipperStats } from "@/lib/tipper-stats";
+import { FALLBACK_TROPHY_CONFIG, TIPPER_TROPHY_CONFIG } from "@/lib/tipper-trophy-config";
 import type { MatchPredictionRow, MatchRow, MedalPredictionRow, ProfileRow } from "@/lib/db-types";
 
 const profiles: ProfileRow[] = [
@@ -122,5 +123,38 @@ describe("calculateTipperStats", () => {
     expect(stats.awards.find((award) => award.key === "exact-king")?.winnerName).toBe("Anna");
     expect(stats.awards.find((award) => award.key === "winner-oracle")?.winnerName).toBe("Anna");
     expect(stats.awards.find((award) => award.key === "contrarian")?.winnerName).toBe("Cyril");
+  });
+
+  it("assigns trophy badges to award winners", () => {
+    const trophyProfiles: ProfileRow[] = [
+      ...profiles,
+      { id: "u4", display_name: "Dana" }
+    ];
+    const stats = calculateTipperStats({
+      profiles: trophyProfiles,
+      matches: [
+        finalMatch("m1", "2026-05-15T14:20:00.000Z", 3, 2),
+        finalMatch("m2", "2026-05-16T14:20:00.000Z", 1, 4)
+      ],
+      matchPredictions: [
+        prediction("u1", "m1", 3, 2, 3),
+        prediction("u1", "m2", 2, 4, 1),
+        prediction("u2", "m1", 2, 5, 0),
+        prediction("u2", "m2", 5, 1, 0),
+        prediction("u3", "m1", 8, 7, 1),
+        prediction("u3", "m2", 7, 6, 0)
+      ],
+      medalPredictions: [],
+      now: new Date("2026-05-17T12:00:00.000Z")
+    });
+
+    const anna = stats.profiles.find((row) => row.user_id === "u1");
+    const dana = stats.profiles.find((row) => row.user_id === "u4");
+
+    expect(anna?.trophies.map((trophy) => trophy.key)).toContain("exact-king");
+    expect(anna?.trophies.length).toBeGreaterThan(1);
+    expect(dana?.trophies).toEqual([]);
+    expect(Object.keys(TIPPER_TROPHY_CONFIG).sort()).toEqual(stats.awards.map((award) => award.key).sort());
+    expect(FALLBACK_TROPHY_CONFIG.icon).toBe("Trophy");
   });
 });

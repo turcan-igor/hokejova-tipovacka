@@ -4,6 +4,7 @@ import { assignSharedRanks, isLocked } from "@/lib/scoring";
 import { TOURNAMENT_TIME_ZONE } from "@/lib/time-zone";
 import type { MatchPredictionRow, MatchRow, MedalPredictionRow, ProfileRow } from "@/lib/db-types";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createTrophyFromAward, type TipperTrophy } from "@/lib/tipper-trophy-config";
 
 type RankedTipper = {
   user_id: string;
@@ -45,6 +46,7 @@ export type TipperStatsProfile = RankedTipper & {
     worseMatches: number;
     tiedMatches: number;
   };
+  trophies: TipperTrophy[];
 };
 
 export type TipperAward = {
@@ -63,6 +65,8 @@ export type TipperStatsDataset = {
   finalMatchCount: number;
   lockedKnownMatchCount: number;
 };
+
+type AwardProfile = Omit<TipperStatsProfile, "trophies">;
 
 export async function getTipperStats(supabase: SupabaseClient) {
   const [{ data: profilesData }, { data: matchesData }, { data: matchPredictionsData }, { data: medalPredictionsData }] = await Promise.all([
@@ -188,15 +192,33 @@ export function calculateTipperStats({
     };
   });
 
+  const awards = buildAwards(detailed);
+  const trophiesByUser = getTrophiesByUser(awards);
+
   return {
-    profiles: detailed,
-    awards: buildAwards(detailed),
+    profiles: detailed.map((profile) => ({
+      ...profile,
+      trophies: trophiesByUser.get(profile.user_id) ?? []
+    })),
+    awards,
     finalMatchCount: finalMatches.length,
     lockedKnownMatchCount: lockedKnownMatches.length
   };
 }
 
-function buildAwards(profiles: TipperStatsProfile[]): TipperAward[] {
+function getTrophiesByUser(awards: TipperAward[]) {
+  const trophiesByUser = new Map<string, TipperTrophy[]>();
+  for (const award of awards) {
+    if (!award.winnerUserId) continue;
+    trophiesByUser.set(award.winnerUserId, [
+      ...(trophiesByUser.get(award.winnerUserId) ?? []),
+      createTrophyFromAward(award)
+    ]);
+  }
+  return trophiesByUser;
+}
+
+function buildAwards(profiles: AwardProfile[]): TipperAward[] {
   return [
     award("exact-king", "Výkon", "Král přesného skóre", profiles, (row) => row.exact_scores, "Nejvíc trefených přesných výsledků."),
     award("winner-oracle", "Výkon", "Věštec vítězů", profiles, (row) => row.winnerAccuracy, "Nejvyšší úspěšnost správného vítěze."),
@@ -217,14 +239,14 @@ function award(
   key: string,
   group: TipperAward["group"],
   title: string,
-  profiles: TipperStatsProfile[],
-  valueGetter: (profile: TipperStatsProfile) => number | null,
+  profiles: AwardProfile[],
+  valueGetter: (profile: AwardProfile) => number | null,
   description: string,
   direction: "asc" | "desc" = "desc"
 ): TipperAward {
   const candidates = profiles
     .map((profile) => ({ profile, value: valueGetter(profile) }))
-    .filter((item): item is { profile: TipperStatsProfile; value: number } => item.value !== null && Number.isFinite(item.value));
+    .filter((item): item is { profile: AwardProfile; value: number } => item.value !== null && Number.isFinite(item.value));
   const sorted = candidates.sort((a, b) => {
     const valueDiff = direction === "asc" ? a.value - b.value : b.value - a.value;
     return valueDiff || a.profile.display_name.localeCompare(b.profile.display_name, "cs");

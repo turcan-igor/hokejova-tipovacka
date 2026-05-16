@@ -1,7 +1,9 @@
 import { PageShell } from "@/components/page-shell";
 import { TipperStatCard } from "@/components/tipper-stat-card";
+import { TipperTrophyBadge } from "@/components/tipper-trophy-badge";
 import { requireUser } from "@/lib/auth";
 import { formatDecimal, formatPercent, getCachedTipperStats } from "@/lib/tipper-stats";
+import { createTrophyFromAward } from "@/lib/tipper-trophy-config";
 
 const awardGroups = ["Výkon", "Forma", "Styl tipování", "Zábavné ceny"] as const;
 
@@ -47,6 +49,7 @@ export default async function TipperStatsPage() {
                   value={award.winnerName ? `${award.winnerName} · ${award.value}` : award.value}
                   description={award.description}
                   href={award.winnerUserId ? `/tiperi/${award.winnerUserId}` : undefined}
+                  icon={<TipperTrophyBadge trophy={createTrophyFromAward(award)} size="lg" />}
                 />
               ))}
           </div>
