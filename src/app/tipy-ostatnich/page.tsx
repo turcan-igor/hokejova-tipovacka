@@ -9,7 +9,7 @@ import type { MatchPredictionRow, MatchRow, MedalPredictionRow, ProfileRow } fro
 export default async function OthersTipsPage() {
   const { supabase, profile } = await requireUser();
   const { data: profiles } = await supabase.from("profiles").select("id, display_name").order("display_name");
-  const { data: matches } = await supabase.from("matches").select("*").order("starts_at", { ascending: true });
+  const { data: matches } = await supabase.from("matches").select("*").order("starts_at", { ascending: false });
   const profileRows = (profiles ?? []) as ProfileRow[];
   const matchRows = (matches ?? []) as MatchRow[];
   const lockedMatches = matchRows.filter((match) => isLocked(match.starts_at) || match.status === "live");

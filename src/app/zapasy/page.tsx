@@ -1,12 +1,10 @@
 import { AdminSyncButton } from "@/components/admin-forms";
-import { LiveTipStateBadge } from "@/components/live-tip-state";
-import { MatchTipForm } from "@/components/match-tip-form";
+import { MatchDayGroupsList, type MatchDayGroupView } from "@/components/match-day-groups-list";
 import { PageShell } from "@/components/page-shell";
-import { Matchup } from "@/components/team-badge";
 import { requireUser } from "@/lib/auth";
 import type { MatchPredictionRow, MatchRow } from "@/lib/db-types";
 import { groupMatchesByDay } from "@/lib/match-groups";
-import { getLivePredictionState, isLocked } from "@/lib/scoring";
+import { isLocked } from "@/lib/scoring";
 import { TOURNAMENT_TIME_ZONE } from "@/lib/time-zone";
 
 export default async function MatchesPage() {
@@ -16,6 +14,44 @@ export default async function MatchesPage() {
   const matchRows = (matches ?? []) as MatchRow[];
   const predictionRows = (predictions ?? []) as MatchPredictionRow[];
   const matchGroups = groupMatchesByDay(matchRows);
+  const viewGroups: MatchDayGroupView[] = matchGroups.map((group) => ({
+    key: group.key,
+    label: group.label,
+    matches: group.matches.map((match) => {
+      const prediction = predictionRows.find((item) => item.match_id === match.id);
+      const result =
+        (match.status === "final" || match.status === "live") &&
+        match.home_score !== null &&
+        match.away_score !== null
+          ? `${match.home_score}:${match.away_score}`
+          : match.status;
+
+      return {
+        id: match.id,
+        phase: match.phase,
+        venue: match.venue,
+        homeTeamCode: match.home_team_code,
+        awayTeamCode: match.away_team_code,
+        homeScore: match.home_score,
+        awayScore: match.away_score,
+        status: match.status,
+        timeLabel: new Intl.DateTimeFormat("cs-CZ", {
+          timeZone: TOURNAMENT_TIME_ZONE,
+          hour: "2-digit",
+          minute: "2-digit"
+        }).format(new Date(match.starts_at)),
+        resultLabel: match.status === "live" ? `Live ${result}` : result,
+        locked: isLocked(match.starts_at),
+        prediction: prediction
+          ? {
+              homeScore: prediction.home_score,
+              awayScore: prediction.away_score,
+              points: prediction.points
+            }
+          : null
+      };
+    })
+  }));
 
   return (
     <PageShell isAdmin={profile.role === "ADMIN"}>
@@ -34,80 +70,7 @@ export default async function MatchesPage() {
         </section>
       ) : null}
 
-      <div className="grid gap-6">
-        {matchGroups.map((group) => (
-          <section
-            key={group.key}
-            className="rounded-lg border border-ice-100 bg-white p-5 shadow-soft dark:border-slate-700 dark:bg-slate-900"
-          >
-            <h2 className="mb-4 text-xl font-bold capitalize text-ice-900 dark:text-slate-100">{group.label}</h2>
-            <div className="grid gap-3">
-              {group.matches.map((match) => {
-                const prediction = predictionRows.find((item) => item.match_id === match.id);
-                const locked = isLocked(match.starts_at);
-                const teamsKnown = match.home_team_code && match.away_team_code;
-                const liveState = prediction ? getLivePredictionState(prediction, match) : null;
-                const result = (match.status === "final" || match.status === "live") && match.home_score !== null && match.away_score !== null
-                  ? `${match.home_score}:${match.away_score}`
-                  : match.status;
-
-                return (
-                  <article
-                    key={match.id}
-                    className="grid gap-4 rounded-md border border-ice-100 p-4 dark:border-slate-700 md:grid-cols-[88px_1fr_120px_minmax(240px,auto)_96px] md:items-center"
-                  >
-                    <div>
-                      <p className="text-lg font-bold text-ice-900 dark:text-slate-100">
-                        {new Intl.DateTimeFormat("cs-CZ", {
-                          timeZone: TOURNAMENT_TIME_ZONE,
-                          hour: "2-digit",
-                          minute: "2-digit"
-                        }).format(new Date(match.starts_at))}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">{match.venue ?? ""}</p>
-                    </div>
-
-                    <div>
-                      <p className="mb-2 text-xs font-semibold uppercase text-rink-blue dark:text-sky-300">{match.phase}</p>
-                      <Matchup homeTeamCode={match.home_team_code} awayTeamCode={match.away_team_code} />
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Výsledek</p>
-                      <p className="font-semibold text-ice-900 dark:text-slate-100">
-                        {match.status === "live" ? `Live ${result}` : result}
-                      </p>
-                    </div>
-
-                    <div>
-                      {teamsKnown ? (
-                        <MatchTipForm
-                          matchId={match.id}
-                          defaultHome={prediction?.home_score}
-                          defaultAway={prediction?.away_score}
-                          disabled={locked}
-                        />
-                      ) : (
-                        <span className="text-sm text-slate-500 dark:text-slate-400">
-                          Bude otevřeno po doplnění týmů
-                        </span>
-                      )}
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Body</p>
-                      <p className="text-lg font-bold text-rink-blue dark:text-sky-300">{prediction?.points ?? "-"}</p>
-                      <div className="mt-2">
-                        <LiveTipStateBadge state={liveState} />
-                      </div>
-                    </div>
-                  </article>
-                );
-              })}
-            </div>
-          </section>
-        ))}
-      </div>
+      <MatchDayGroupsList groups={viewGroups} />
     </PageShell>
   );
 }
