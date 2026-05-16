@@ -1,8 +1,9 @@
+import { LiveTipStateBadge, liveTipCardClass } from "@/components/live-tip-state";
 import { PageShell } from "@/components/page-shell";
 import { Matchup } from "@/components/team-badge";
 import { TOURNAMENT_START } from "@/lib/constants";
 import { requireUser } from "@/lib/auth";
-import { isLocked } from "@/lib/scoring";
+import { getLivePredictionState, isLocked } from "@/lib/scoring";
 import { formatTournamentDateTime } from "@/lib/time-zone";
 import type { MatchPredictionRow, MatchRow, MedalPredictionRow, ProfileRow } from "@/lib/db-types";
 
@@ -19,7 +20,7 @@ export default async function OthersTipsPage() {
   const { data: matches } = await supabase.from("matches").select("*").order("starts_at", { ascending: true });
   const profileRows = (profiles ?? []) as ProfileRow[];
   const matchRows = (matches ?? []) as MatchRow[];
-  const lockedMatches = matchRows.filter((match) => isLocked(match.starts_at));
+  const lockedMatches = matchRows.filter((match) => isLocked(match.starts_at) || match.status === "live");
   const lockedMatchIds = lockedMatches.map((match) => match.id);
   const { data: matchPredictions } = lockedMatchIds.length
     ? await supabase.from("match_predictions").select("*").in("match_id", lockedMatchIds)
@@ -44,6 +45,9 @@ export default async function OthersTipsPage() {
             const predictionsForMatch = ((matchPredictions ?? []) as MatchPredictionRow[]).filter(
               (prediction) => prediction.match_id === match.id
             );
+            const visibleResult = (match.status === "final" || match.status === "live") && match.home_score !== null && match.away_score !== null
+              ? `${match.home_score}:${match.away_score}`
+              : null;
 
             return (
               <article key={match.id} className="rounded-md border border-ice-100 p-4 dark:border-slate-700">
@@ -55,9 +59,7 @@ export default async function OthersTipsPage() {
                     </p>
                   </div>
                   <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
-                    {match.status === "final" && match.home_score !== null && match.away_score !== null
-                      ? `${match.home_score}:${match.away_score}`
-                      : "Uzamčeno"}
+                    {match.status === "live" && visibleResult ? `Live ${visibleResult}` : visibleResult ?? "Uzamčeno"}
                   </p>
                 </div>
 
@@ -65,16 +67,22 @@ export default async function OthersTipsPage() {
                   <div className="grid gap-2 md:grid-cols-3">
                     {predictionsForMatch.map((prediction) => {
                       const owner = profileRows.find((item) => item.id === prediction.user_id);
-                      const isExact = prediction.is_exact || prediction.points === 3;
-                      const isWinner = !isExact && prediction.points === 1;
+                      const liveState = getLivePredictionState(prediction, match);
+                      const isExact = match.status === "final" && (prediction.is_exact || prediction.points === 3);
+                      const isWinner = match.status === "final" && !isExact && prediction.points === 1;
+                      const className = match.status === "live"
+                        ? liveTipCardClass(liveState)
+                        : isExact
+                          ? exactTipClass
+                          : isWinner
+                            ? winnerTipClass
+                            : neutralTipClass;
 
                       return (
-                        <div
-                          key={prediction.id}
-                          className={isExact ? exactTipClass : isWinner ? winnerTipClass : neutralTipClass}
-                        >
+                        <div key={prediction.id} className={className}>
                           <div className="flex items-center justify-between gap-2">
                             <strong>{owner?.display_name ?? "Uživatel"}</strong>
+                            {match.status === "live" ? <LiveTipStateBadge state={liveState} /> : null}
                             {isExact ? (
                               <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800 dark:bg-emerald-900 dark:text-emerald-100">
                                 Přesně

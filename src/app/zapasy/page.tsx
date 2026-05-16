@@ -1,11 +1,12 @@
 import { AdminSyncButton } from "@/components/admin-forms";
+import { LiveTipStateBadge } from "@/components/live-tip-state";
 import { MatchTipForm } from "@/components/match-tip-form";
 import { PageShell } from "@/components/page-shell";
 import { Matchup } from "@/components/team-badge";
 import { requireUser } from "@/lib/auth";
 import type { MatchPredictionRow, MatchRow } from "@/lib/db-types";
 import { groupMatchesByDay } from "@/lib/match-groups";
-import { isLocked } from "@/lib/scoring";
+import { getLivePredictionState, isLocked } from "@/lib/scoring";
 import { TOURNAMENT_TIME_ZONE } from "@/lib/time-zone";
 
 export default async function MatchesPage() {
@@ -45,11 +46,15 @@ export default async function MatchesPage() {
                 const prediction = predictionRows.find((item) => item.match_id === match.id);
                 const locked = isLocked(match.starts_at);
                 const teamsKnown = match.home_team_code && match.away_team_code;
+                const liveState = prediction ? getLivePredictionState(prediction, match) : null;
+                const result = (match.status === "final" || match.status === "live") && match.home_score !== null && match.away_score !== null
+                  ? `${match.home_score}:${match.away_score}`
+                  : match.status;
 
                 return (
                   <article
                     key={match.id}
-                    className="grid gap-4 rounded-md border border-ice-100 p-4 dark:border-slate-700 md:grid-cols-[88px_1fr_120px_minmax(240px,auto)_72px] md:items-center"
+                    className="grid gap-4 rounded-md border border-ice-100 p-4 dark:border-slate-700 md:grid-cols-[88px_1fr_120px_minmax(240px,auto)_96px] md:items-center"
                   >
                     <div>
                       <p className="text-lg font-bold text-ice-900 dark:text-slate-100">
@@ -70,7 +75,7 @@ export default async function MatchesPage() {
                     <div>
                       <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Výsledek</p>
                       <p className="font-semibold text-ice-900 dark:text-slate-100">
-                        {match.status === "final" ? `${match.home_score}:${match.away_score}` : match.status}
+                        {match.status === "live" ? `Live ${result}` : result}
                       </p>
                     </div>
 
@@ -92,6 +97,9 @@ export default async function MatchesPage() {
                     <div>
                       <p className="text-xs font-semibold uppercase text-slate-500 dark:text-slate-400">Body</p>
                       <p className="text-lg font-bold text-rink-blue dark:text-sky-300">{prediction?.points ?? "-"}</p>
+                      <div className="mt-2">
+                        <LiveTipStateBadge state={liveState} />
+                      </div>
                     </div>
                   </article>
                 );

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CalendarClock, Medal, Trophy } from "lucide-react";
+import { LiveTipStateBadge } from "@/components/live-tip-state";
 import { MatchTipForm } from "@/components/match-tip-form";
 import { MedalForm } from "@/components/medal-form";
 import { PageShell } from "@/components/page-shell";
@@ -7,7 +8,7 @@ import { Matchup } from "@/components/team-badge";
 import { requireUser } from "@/lib/auth";
 import { TOURNAMENT_START } from "@/lib/constants";
 import type { MatchPredictionRow, MatchRow, MedalPredictionRow } from "@/lib/db-types";
-import { isLocked } from "@/lib/scoring";
+import { getLivePredictionState, isLocked } from "@/lib/scoring";
 import { formatTournamentDateTime } from "@/lib/time-zone";
 
 export default async function HomePage() {
@@ -20,7 +21,7 @@ export default async function HomePage() {
     .select("*")
     .not("home_team_code", "is", null)
     .not("away_team_code", "is", null)
-    .gt("starts_at", now.toISOString())
+    .or(`status.eq.live,starts_at.gt.${now.toISOString()}`)
     .order("starts_at", { ascending: true })
     .limit(8);
 
@@ -35,7 +36,7 @@ export default async function HomePage() {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  const matchRows = ((matches ?? []) as MatchRow[]).filter((match) => !isLocked(match.starts_at, now));
+  const matchRows = ((matches ?? []) as MatchRow[]).filter((match) => match.status === "live" || !isLocked(match.starts_at, now));
 
   return (
     <PageShell isAdmin={profile.role === "ADMIN"}>
@@ -43,7 +44,7 @@ export default async function HomePage() {
         <p className="text-sm font-semibold uppercase text-rink-blue dark:text-sky-300">MS v hokeji 2026</p>
         <h1 className="mt-2 text-3xl font-bold text-ice-900 dark:text-slate-100">Moje tipy</h1>
         <p className="mt-3 max-w-2xl text-slate-700 dark:text-slate-300">
-          Tipy lze upravovat do začátku každého zápasu. Tady se zobrazují jen zápasy, které je ještě možné tipovat.
+          Tipy lze upravovat do začátku každého zápasu. Tady se zobrazují otevřené zápasy a zápasy, které se právě hrají.
         </p>
       </section>
 
@@ -61,11 +62,16 @@ export default async function HomePage() {
           <div className="space-y-4">
             {matchRows.length === 0 ? (
               <p className="rounded-md bg-ice-100 px-3 py-2 text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                Všechny aktuálně dostupné zápasy jsou už uzamčené. Další tipy přibudou po doplnění budoucích zápasů.
+                Žádné otevřené ani právě hrané zápasy teď nejsou dostupné.
               </p>
             ) : null}
             {matchRows.map((match) => {
               const prediction = ((predictions ?? []) as MatchPredictionRow[]).find((item) => item.match_id === match.id);
+              const liveState = prediction ? getLivePredictionState(prediction, match) : null;
+              const liveScore = match.status === "live" && match.home_score !== null && match.away_score !== null
+                ? `${match.home_score}:${match.away_score}`
+                : null;
+
               return (
                 <article key={match.id} className="rounded-md border border-ice-100 p-4 dark:border-slate-700">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -76,15 +82,18 @@ export default async function HomePage() {
                         {formatTournamentDateTime(match.starts_at, { dateStyle: "medium", timeStyle: "short" })}
                       </p>
                     </div>
-                    <span className="rounded-md bg-ice-100 px-2 py-1 text-xs font-semibold text-ice-900 dark:bg-slate-800 dark:text-slate-100">
-                      Otevřeno
-                    </span>
+                    <div className="flex flex-wrap items-center justify-end gap-2">
+                      <span className="rounded-md bg-ice-100 px-2 py-1 text-xs font-semibold text-ice-900 dark:bg-slate-800 dark:text-slate-100">
+                        {liveScore ? `Live ${liveScore}` : "Otevřeno"}
+                      </span>
+                      <LiveTipStateBadge state={liveState} />
+                    </div>
                   </div>
                   <MatchTipForm
                     matchId={match.id}
                     defaultHome={prediction?.home_score}
                     defaultAway={prediction?.away_score}
-                    disabled={false}
+                    disabled={match.status === "live"}
                   />
                 </article>
               );

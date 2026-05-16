@@ -82,6 +82,31 @@ describe("parseIihfScheduleHtml", () => {
     });
   });
 
+  it("parses live scores from IIHF schedule pages", () => {
+    const html = `
+      <a href="/en/events/2026/wm/gamecenter/playbyplay/2/test">Game Centre</a>
+      16 May
+      FIN
+      FIN
+      2
+      LIVE
+      LIVE{{status}}
+      1
+      HUN
+      HUN
+      FIN vs HUN
+      Swiss Life Arena, Group A
+      16:20
+    `;
+
+    const matches = parseIihfScheduleHtml(html);
+    expect(matches[0]).toMatchObject({
+      homeScore: 2,
+      awayScore: 1,
+      status: "live"
+    });
+  });
+
   it("parses completed games from IIHF stats schedule", () => {
     const html = `
       15 May 2026, Fri

@@ -1,5 +1,7 @@
 import type { FinalMedals, Match, MatchPrediction, MedalPrediction } from "@/lib/types";
 
+export type LivePredictionState = "exact-now" | "winner-now" | "can-still-hit" | "out";
+
 export function scoreMatchPrediction(
   prediction: Pick<MatchPrediction, "home_score" | "away_score">,
   match: Pick<Match, "home_score" | "away_score" | "status">
@@ -61,6 +63,31 @@ export function assignSharedRanks<T extends { total_points: number }>(rows: T[])
 
 export function isLocked(startsAt: string, now = new Date()) {
   return new Date(startsAt).getTime() <= now.getTime();
+}
+
+export function getLivePredictionState(
+  prediction: Pick<MatchPrediction, "home_score" | "away_score">,
+  match: Pick<Match, "home_score" | "away_score" | "status">
+): LivePredictionState | null {
+  if (match.status !== "live" || match.home_score === null || match.away_score === null) {
+    return null;
+  }
+
+  if (prediction.home_score === match.home_score && prediction.away_score === match.away_score) {
+    return "exact-now";
+  }
+
+  const predictedWinner = winner(prediction.home_score, prediction.away_score);
+  const currentWinner = winner(match.home_score, match.away_score);
+  if (currentWinner !== null && predictedWinner === currentWinner) {
+    return "winner-now";
+  }
+
+  if (match.home_score <= prediction.home_score && match.away_score <= prediction.away_score) {
+    return "can-still-hit";
+  }
+
+  return "out";
 }
 
 function winner(homeScore: number, awayScore: number) {

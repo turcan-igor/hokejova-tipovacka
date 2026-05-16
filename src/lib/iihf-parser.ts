@@ -54,7 +54,7 @@ export function parseIihfScheduleHtml(html: string): ParsedIihfMatch[] {
       .map(Number);
     const statusSource = candidate.join(" ").toLowerCase();
     const status = normalizeStatus(statusSource);
-    const [homeScore, awayScore] = status === "final" && scoreCandidates.length >= 2
+    const [homeScore, awayScore] = (status === "final" || status === "live") && scoreCandidates.length >= 2
       ? [scoreCandidates[0], scoreCandidates[1]]
       : [null, null];
 

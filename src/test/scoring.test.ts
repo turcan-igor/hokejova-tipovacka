@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   assignSharedRanks,
+  getLivePredictionState,
   isLocked,
   isScorePredictionValid,
   scoreMatchPrediction,
@@ -62,6 +63,53 @@ describe("scoreMedalPrediction", () => {
         { gold_team_code: "CZE", silver_team_code: null, bronze_team_code: "SWE" }
       )
     ).toBeNull();
+  });
+});
+
+describe("getLivePredictionState", () => {
+  it("marks the current exact live score", () => {
+    expect(
+      getLivePredictionState(
+        { home_score: 2, away_score: 1 },
+        { home_score: 2, away_score: 1, status: "live" }
+      )
+    ).toBe("exact-now");
+  });
+
+  it("marks the current correct winner without exact score", () => {
+    expect(
+      getLivePredictionState(
+        { home_score: 4, away_score: 2 },
+        { home_score: 2, away_score: 1, status: "live" }
+      )
+    ).toBe("winner-now");
+  });
+
+  it("does not mark a live tie as a correct winner", () => {
+    expect(
+      getLivePredictionState(
+        { home_score: 4, away_score: 2 },
+        { home_score: 1, away_score: 1, status: "live" }
+      )
+    ).toBe("can-still-hit");
+  });
+
+  it("marks a tip that can still hit the exact score", () => {
+    expect(
+      getLivePredictionState(
+        { home_score: 3, away_score: 2 },
+        { home_score: 1, away_score: 2, status: "live" }
+      )
+    ).toBe("can-still-hit");
+  });
+
+  it("marks a tip whose exact score is no longer possible", () => {
+    expect(
+      getLivePredictionState(
+        { home_score: 1, away_score: 2 },
+        { home_score: 3, away_score: 2, status: "live" }
+      )
+    ).toBe("out");
   });
 });
 
