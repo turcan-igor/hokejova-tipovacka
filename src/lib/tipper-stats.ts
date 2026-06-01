@@ -224,6 +224,7 @@ function getTrophiesByUser(awards: TipperAward[]) {
 function buildAwards(profiles: AwardProfile[]): TipperAward[] {
   return [
     award("exact-king", "Výkon", "Král přesného skóre", profiles, (row) => row.exact_scores, "Nejvíc trefených přesných výsledků."),
+    award("medal-master", "Výkon", "Medailový mág", profiles, (row) => row.medal_points, "Nejvíc bodů získaných z tipů na medaile."),
     award("winner-oracle", "Výkon", "Věštec vítězů", profiles, (row) => row.winnerAccuracy, "Nejvyšší úspěšnost správného vítěze."),
     award("one-point", "Výkon", "Sběrač jedniček", profiles, (row) => row.onePointCount, "Nejvíc tipů za správného vítěze bez přesného skóre."),
     award("discipline", "Výkon", "Poctivec turnaje", profiles, (row) => row.disciplineRate, "Nejvyšší podíl vyplněných uzamčených zápasů."),

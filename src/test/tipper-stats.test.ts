@@ -123,6 +123,7 @@ describe("calculateTipperStats", () => {
     expect(stats.awards.find((award) => award.key === "exact-king")?.winnerName).toBe("Anna");
     expect(stats.awards.find((award) => award.key === "exact-king")?.winners.map((winner) => winner.displayName)).toEqual(["Anna", "Boris"]);
     expect(stats.awards.find((award) => award.key === "exact-king")?.winnerLabel).toBe("Anna, Boris · 1");
+    expect(stats.awards.find((award) => award.key === "medal-master")?.winnerName).toBeNull();
     expect(stats.awards.find((award) => award.key === "winner-oracle")?.winnerName).toBe("Anna");
     expect(stats.awards.find((award) => award.key === "contrarian")?.winnerName).toBe("Cyril");
   });
@@ -146,7 +147,7 @@ describe("calculateTipperStats", () => {
         prediction("u3", "m1", 8, 7, 1),
         prediction("u3", "m2", 7, 6, 0)
       ],
-      medalPredictions: [],
+      medalPredictions: [medal("u1", 10), medal("u2", 5), medal("u3", 0)],
       now: new Date("2026-05-17T12:00:00.000Z")
     });
 
@@ -155,6 +156,7 @@ describe("calculateTipperStats", () => {
     const dana = stats.profiles.find((row) => row.user_id === "u4");
 
     expect(anna?.trophies.map((trophy) => trophy.key)).toContain("exact-king");
+    expect(anna?.trophies.map((trophy) => trophy.key)).toContain("medal-master");
     expect(anna?.trophies.length).toBeGreaterThan(1);
     expect(cyril?.trophies.map((trophy) => trophy.key)).toContain("shootout");
     expect(dana?.trophies.map((trophy) => trophy.key)).toContain("behind");

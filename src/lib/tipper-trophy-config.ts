@@ -18,6 +18,7 @@ export type TipperTrophyColor =
 export type TipperTrophyIcon =
   | "Crosshair"
   | "Eye"
+  | "Medal"
   | "BadgePlus"
   | "ClipboardCheck"
   | "TrendingUp"
@@ -42,6 +43,7 @@ export type TipperTrophy = {
 
 export const TIPPER_TROPHY_CONFIG: Record<string, { icon: TipperTrophyIcon; color: TipperTrophyColor }> = {
   "exact-king": { icon: "Crosshair", color: "emerald" },
+  "medal-master": { icon: "Medal", color: "gold" },
   "winner-oracle": { icon: "Eye", color: "sky" },
   "one-point": { icon: "BadgePlus", color: "amber" },
   discipline: { icon: "ClipboardCheck", color: "green" },
